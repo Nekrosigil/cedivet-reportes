@@ -41,22 +41,47 @@ st.markdown("""
 # ==========================================
 # BARRA LATERAL: ARCHIVERO CLÍNICO (BÚSQUEDA)
 # ==========================================
+
 st.sidebar.header("📁 Archivero Clínico")
-estudio_a_buscar = st.sidebar.text_input("Buscar ID de Estudio (ej. JL-27-26)")
+busqueda_input = st.sidebar.text_input("Buscar por ID o Paciente (ej. JL-27-26 o Pizza)")
 
 datos_recuperados = None
 
-if estudio_a_buscar:
-    response = supabase.table("estudios").select("*").eq("estudio_id", estudio_a_buscar).execute()
+if busqueda_input:
+    # Buscamos coincidencias tanto en el ID de estudio como en el nombre del paciente
+    response = supabase.table("estudios").select("*").or_(f"estudio_id.ilike.%{busqueda_input}%,paciente.ilike.%{busqueda_input}%").execute()
+    
     if response.data:
-        st.sidebar.success("¡Estudio encontrado!")
-        datos_recuperados = response.data[0]
+        st.sidebar.success(f"Se encontraron {len(response.data)} registro(s).")
+        
+        # Si hay varios con la misma nomenclatura, creamos una lista descriptiva para elegir el correcto
+        opciones_estudios = {
+            f"{row['estudio_id']} - {row['paciente']} ({row['tipo_estudio']} - {row['fecha']})": row 
+            for row in response.data
+        }
+        
+        estudio_seleccionado_key = st.sidebar.selectbox("Selecciona el estudio exacto:", list(opciones_estudios.keys()))
+        
+        # Botón para confirmar la carga
+        if st.sidebar.button("📥 Cargar estudio al formulario"):
+            st.session_state["datos_cargados"] = opciones_estudios[estudio_seleccionado_key]
+            st.sidebar.rerun()
     else:
-        st.sidebar.warning("No se encontró ningún estudio con ese ID.")
+        st.sidebar.warning("No se encontraron registros con ese criterio.")
+
+# Verificamos si hay un estudio cargado en la sesión actual
+datos_recuperados = st.session_state.get("datos_cargados", None)
+
+if datos_recuperados:
+    st.sidebar.info(f"Editando estudio activo: **{datos_recuperados['estudio_id']}** de **{datos_recuperados['paciente']}**")
+    if st.sidebar.button("❌ Limpiar / Nuevo Estudio"):
+        st.session_state["datos_cargados"] = None
+        st.sidebar.rerun()
 
 # ==========================================
 # BLOQUE 2: PACIENTE
 # ==========================================
+
 st.subheader("1. Datos Generales del Paciente")
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -70,9 +95,6 @@ with c2:
 with c3:
     medico = st.text_input("🩺 Médico Solicitante", datos_recuperados["medico"] if datos_recuperados else "MVZ. JASMIN RIVERA")
     paciente = st.text_input("🏷️ Nombre / Identificación", datos_recuperados["paciente"] if datos_recuperados else "PIZZA PEREZ")
-
-es_felino = (especie == "FELINO")
-st.markdown("---")
 
 # ==========================================
 # BLOQUE 3: ENRUTADOR
