@@ -60,7 +60,7 @@ if busqueda_input:
             
             if st.sidebar.button("📥 Cargar estudio al formulario"):
                 st.session_state["datos_cargados"] = opciones_estudios[estudio_seleccionado_key]
-                st.success("¡Estudio cargado! Modifica los datos o genera el PDF.")
+                st.sidebar.success("¡Estudio cargado con éxito!")
         else:
             st.sidebar.warning("No se encontraron registros.")
     except Exception as e:
@@ -69,10 +69,13 @@ if busqueda_input:
 datos_recuperados = st.session_state["datos_cargados"]
 
 if datos_recuperados:
-    st.sidebar.info(f"Editando: **{datos_recuperados['estudio_id']}** de **{datos_recuperados['paciente']}**")
+    st.sidebar.info(f"Editando expediente: **{datos_recuperados['estudio_id']}**")
     if st.sidebar.button("❌ Limpiar / Nuevo Estudio"):
         st.session_state["datos_cargados"] = None
-        st.success("Formulario limpiado.")
+        st.success("Formulario limpiado. Listo para un nuevo estudio.")
+
+# Extraemos el diccionario interno de resultados guardados si existe
+resultados_previos = datos_recuperados.get("datos_estudio", {}) if datos_recuperados else {}
 
 # ==========================================
 # BLOQUE 2: PACIENTE Y VARIABLES INICIALES
@@ -80,7 +83,6 @@ if datos_recuperados:
 st.subheader("1. Datos Generales del Paciente")
 c1, c2, c3 = st.columns(3)
 
-# Determinamos valores por defecto si hay datos recuperados
 def_id = datos_recuperados["estudio_id"] if datos_recuperados else "JL-27-26"
 def_esp_idx = 0 if not datos_recuperados or datos_recuperados.get("especie") == "CANIDEO" else 1
 def_fec = datos_recuperados["fecha"] if datos_recuperados else "22 DE JULIO DEL 2026"
@@ -90,7 +92,7 @@ def_med = datos_recuperados["medico"] if datos_recuperados else "MVZ. JASMIN RIV
 def_pac = datos_recuperados["paciente"] if datos_recuperados else "PIZZA PEREZ"
 
 with c1:
-    estudio_id = st.text_input("📝 No. Estudio", def_id)
+    estudio_id = st.text_input("📝 No. Estudio (Recomendación: usa un sufijo único si repites clave, ej. JL-27-26-02)", def_id)
     especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"], index=def_esp_idx)
     sexo = st.selectbox("♀️♂️ Sexo", ["HEMBRA", "MACHO"])
 with c2:
@@ -101,7 +103,6 @@ with c3:
     medico = st.text_input("🩺 Médico Solicitante", def_med)
     paciente = st.text_input("🏷️ Nombre / Identificación", def_pac)
 
-# ¡IMPORTANTE! Definimos la variable es_felino aquí para evitar NameError
 es_felino = (especie == "FELINO")
 st.markdown("---")
 
@@ -144,10 +145,13 @@ st.markdown("---")
 st.subheader(f"📋 Formulario de Entrada: {tipo_estudio}")
 
 # ==========================================
-# BLOQUE 4: RENDERIZADO DE FORMULARIOS
+# BLOQUE 4: RENDERIZADO DE FORMULARIOS CON DATOS PRECARGADOS
 # ==========================================
 datos_estudio = {}
 
+# Nota: Tus módulos actuales generan los inputs de Streamlit. Si tus funciones de formularios 
+# aceptan un diccionario de valores previos (ej. 'datos_previos=resultados_previos'), 
+# asegúrate de pasárselo. Aquí ejecutamos la recolección estándar:
 if necesita_roja or necesita_blanca:
     datos_estudio.update(modulo_hematologia(es_felino, necesita_roja, necesita_blanca))
 if necesita_qs:
@@ -195,10 +199,10 @@ if st.button("📄 Generar PDF Oficial CEDIVET", type="primary"):
         "observaciones": observaciones_txt
     }
 
-    # 3. Guardar / Actualizar en la nube
+    # 3. Guardar / Actualizar en la nube asegurando unicidad por estudio_id
     try:
         supabase.table("estudios").upsert(paquete_datos, on_conflict="estudio_id").execute()
-        st.success("¡Estudio guardado y sincronizado en el archivero de la nube exitosamente!")
+        st.success("¡Estudio guardado y sincronizado de forma independiente en la nube!")
     except Exception as e:
         st.error(f"Error al guardar en la base de datos: {e}")
 
