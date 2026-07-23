@@ -9,7 +9,11 @@ from formularios import (
 )
 from generador_pdf import generar_pdf_cedivet
 
-# Inicializar cliente de Supabase usando los secretos de Streamlit
+# ==========================================
+# CONFIGURACIÓN INICIAL Y SUPABASE
+# ==========================================
+st.set_page_config(page_title="CEDIVET - Generador de Reportes", layout="wide")
+
 @st.cache_resource
 def init_supabase():
     url = st.secrets["supabase"]["url"]
@@ -18,10 +22,6 @@ def init_supabase():
 
 supabase: Client = init_supabase()
 
-# ==========================================
-# BLOQUE 1: CONFIGURACIÓN
-# ==========================================
-st.set_page_config(page_title="CEDIVET - Generador de Reportes", layout="wide")
 st.title("🧪 CENTRO DIAGNÓSTICO VETERINARIO - CEDIVET")
 st.caption("Sistema automatizado de captura y generación de reportes clínicos.")
 
@@ -39,65 +39,74 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# BARRA LATERAL: ARCHIVERO CLÍNICO (BÚSQUEDA)
+# BARRA LATERAL: ARCHIVERO CLÍNICO AVANZADO
 # ==========================================
-
 st.sidebar.header("📁 Archivero Clínico")
 busqueda_input = st.sidebar.text_input("Buscar por ID o Paciente (ej. JL-27-26 o Pizza)")
 
-datos_recuperados = None
+if "datos_cargados" not in st.session_state:
+    st.session_state["datos_cargados"] = None
 
 if busqueda_input:
-    # Buscamos coincidencias tanto en el ID de estudio como en el nombre del paciente
-    response = supabase.table("estudios").select("*").or_(f"estudio_id.ilike.%{busqueda_input}%,paciente.ilike.%{busqueda_input}%").execute()
-    
-    if response.data:
-        st.sidebar.success(f"Se encontraron {len(response.data)} registro(s).")
-        
-        # Si hay varios con la misma nomenclatura, creamos una lista descriptiva para elegir el correcto
-        opciones_estudios = {
-            f"{row['estudio_id']} - {row['paciente']} ({row['tipo_estudio']} - {row['fecha']})": row 
-            for row in response.data
-        }
-        
-        estudio_seleccionado_key = st.sidebar.selectbox("Selecciona el estudio exacto:", list(opciones_estudios.keys()))
-        
-        # Botón para confirmar la carga
-        if st.sidebar.button("📥 Cargar estudio al formulario"):
-            st.session_state["datos_cargados"] = opciones_estudios[estudio_seleccionado_key]
-            st.sidebar.rerun()
-    else:
-        st.sidebar.warning("No se encontraron registros con ese criterio.")
+    try:
+        response = supabase.table("estudios").select("*").or_(f"estudio_id.ilike.%{busqueda_input}%,paciente.ilike.%{busqueda_input}%").execute()
+        if response.data:
+            st.sidebar.success(f"Se encontraron {len(response.data)} registro(s).")
+            opciones_estudios = {
+                f"{row['estudio_id']} - {row['paciente']} ({row['tipo_estudio']} - {row['fecha']})": row 
+                for row in response.data
+            }
+            estudio_seleccionado_key = st.sidebar.selectbox("Selecciona el estudio exacto:", list(opciones_estudios.keys()))
+            
+            if st.sidebar.button("📥 Cargar estudio al formulario"):
+                st.session_state["datos_cargados"] = opciones_estudios[estudio_seleccionado_key]
+                st.sidebar.rerun()
+        else:
+            st.sidebar.warning("No se encontraron registros.")
+    except Exception as e:
+        st.sidebar.error(f"Error en búsqueda: {e}")
 
-# Verificamos si hay un estudio cargado en la sesión actual
-datos_recuperados = st.session_state.get("datos_cargados", None)
+datos_recuperados = st.session_state["datos_cargados"]
 
 if datos_recuperados:
-    st.sidebar.info(f"Editando estudio activo: **{datos_recuperados['estudio_id']}** de **{datos_recuperados['paciente']}**")
+    st.sidebar.info(f"Editando: **{datos_recuperados['estudio_id']}** de **{datos_recuperados['paciente']}**")
     if st.sidebar.button("❌ Limpiar / Nuevo Estudio"):
         st.session_state["datos_cargados"] = None
         st.sidebar.rerun()
 
 # ==========================================
-# BLOQUE 2: PACIENTE
+# BLOQUE 2: PACIENTE Y VARIABLES INICIALES
 # ==========================================
-
 st.subheader("1. Datos Generales del Paciente")
 c1, c2, c3 = st.columns(3)
+
+# Determinamos valores por defecto si hay datos recuperados
+def_id = datos_recuperados["estudio_id"] if datos_recuperados else "JL-27-26"
+def_esp_idx = 0 if not datos_recuperados or datos_recuperados.get("especie") == "CANIDEO" else 1
+def_fec = datos_recuperados["fecha"] if datos_recuperados else "22 DE JULIO DEL 2026"
+def_raz = datos_recuperados["raza"] if datos_recuperados else "MESTIZO"
+def_eda = datos_recuperados["edad"] if datos_recuperados else "7 AÑOS"
+def_med = datos_recuperados["medico"] if datos_recuperados else "MVZ. JASMIN RIVERA"
+def_pac = datos_recuperados["paciente"] if datos_recuperados else "PIZZA PEREZ"
+
 with c1:
-    estudio_id = st.text_input("📝 No. Estudio", datos_recuperados["estudio_id"] if datos_recuperados else "JL-27-26")
-    especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"], index=0 if not datos_recuperados or datos_recuperados["especie"] == "CANIDEO" else 1)
+    estudio_id = st.text_input("📝 No. Estudio", def_id)
+    especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"], index=def_esp_idx)
     sexo = st.selectbox("♀️♂️ Sexo", ["HEMBRA", "MACHO"])
 with c2:
-    fecha = st.text_input("📅 Fecha", datos_recuperados["fecha"] if datos_recuperados else "22 DE JULIO DEL 2026")
-    raza = st.text_input("🐕/🐈 Raza", datos_recuperados["raza"] if datos_recuperados else "MESTIZO")
-    edad = st.text_input("🎂 Edad", datos_recuperados["edad"] if datos_recuperados else "7 AÑOS")
+    fecha = st.text_input("📅 Fecha", def_fec)
+    raza = st.text_input("🐕/🐈 Raza", def_raz)
+    edad = st.text_input("🎂 Edad", def_eda)
 with c3:
-    medico = st.text_input("🩺 Médico Solicitante", datos_recuperados["medico"] if datos_recuperados else "MVZ. JASMIN RIVERA")
-    paciente = st.text_input("🏷️ Nombre / Identificación", datos_recuperados["paciente"] if datos_recuperados else "PIZZA PEREZ")
+    medico = st.text_input("🩺 Médico Solicitante", def_med)
+    paciente = st.text_input("🏷️ Nombre / Identificación", def_pac)
+
+# ¡IMPORTANTE! Definimos la variable es_felino aquí para evitar NameError
+es_felino = (especie == "FELINO")
+st.markdown("---")
 
 # ==========================================
-# BLOQUE 3: ENRUTADOR
+# BLOQUE 3: ENRUTADOR DE CATEGORÍAS
 # ==========================================
 col_cat, col_est = st.columns(2)
 with col_cat:
@@ -156,7 +165,8 @@ if necesita_copro:
 
 st.markdown("---")
 st.markdown('<div class="card-obs"><b>💬 OBSERVACIONES / NOTAS CLÍNICAS</b></div>', unsafe_allow_html=True)
-observaciones_txt = st.text_area("Notas para el reporte:", datos_recuperados.get("observaciones", "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.") if datos_recuperados else "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.")
+def_obs = datos_recuperados.get("observaciones", "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.") if datos_recuperados else "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico."
+observaciones_txt = st.text_area("Notas para el reporte:", def_obs)
 
 # ==========================================
 # BLOQUE 5: GENERADOR PDF Y BASE DE DATOS
@@ -164,13 +174,13 @@ observaciones_txt = st.text_area("Notas para el reporte:", datos_recuperados.get
 st.markdown("---")
 if st.button("📄 Generar PDF Oficial CEDIVET", type="primary"):
     
-    # 1. Generar el archivo PDF
+    # 1. Generar el PDF
     pdf_bytes, nombre_archivo = generar_pdf_cedivet(
         estudio_id, paciente, especie, raza, fecha, medico, sexo, edad, 
         tipo_estudio, datos_estudio, observaciones_txt
     )
     
-    # 2. Preparar el paquete para Supabase
+    # 2. Empaquetar para Supabase
     paquete_datos = {
         "estudio_id": estudio_id,
         "paciente": paciente,
@@ -185,7 +195,7 @@ if st.button("📄 Generar PDF Oficial CEDIVET", type="primary"):
         "observaciones": observaciones_txt
     }
 
-    # 3. Guardar o actualizar en Supabase (Upsert basado en 'estudio_id')
+    # 3. Guardar / Actualizar en la nube
     try:
         supabase.table("estudios").upsert(paquete_datos, on_conflict="estudio_id").execute()
         st.success("¡Estudio guardado y sincronizado en el archivero de la nube exitosamente!")
