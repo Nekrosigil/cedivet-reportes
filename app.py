@@ -60,7 +60,7 @@ if busqueda_input:
             
             if st.sidebar.button("📥 Cargar estudio al formulario"):
                 st.session_state["datos_cargados"] = opciones_estudios[estudio_seleccionado_key]
-                st.sidebar.rerun()
+                st.success("¡Estudio cargado! Modifica los datos o genera el PDF.")
         else:
             st.sidebar.warning("No se encontraron registros.")
     except Exception as e:
@@ -72,7 +72,7 @@ if datos_recuperados:
     st.sidebar.info(f"Editando: **{datos_recuperados['estudio_id']}** de **{datos_recuperados['paciente']}**")
     if st.sidebar.button("❌ Limpiar / Nuevo Estudio"):
         st.session_state["datos_cargados"] = None
-        st.sidebar.rerun()
+        st.success("Formulario limpiado.")
 
 # ==========================================
 # BLOQUE 2: PACIENTE Y VARIABLES INICIALES
