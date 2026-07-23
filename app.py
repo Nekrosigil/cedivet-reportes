@@ -1,296 +1,123 @@
-import os
-import io
+# app.py
 import streamlit as st
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib import colors
 
+# Importamos nuestros módulos locales
+from formularios import (
+    modulo_hematologia, modulo_bioquimica, modulo_serologia, 
+    modulo_endocrino, modulo_citologia, modulo_urianalisis, modulo_copro
+)
+from generador_pdf import generar_pdf_cedivet
+
+# ==========================================
+# BLOQUE 1: CONFIGURACIÓN
+# ==========================================
 st.set_page_config(page_title="CEDIVET - Generador de Reportes", layout="wide")
-
 st.title("🧪 CENTRO DIAGNÓSTICO VETERINARIO - CEDIVET")
-st.caption("Sistema automatizado de captura y generación de reportes clínicos en PDF.")
+st.caption("Sistema automatizado de captura y generación de reportes clínicos.")
 
-# CSS personalizado para diferenciar campos manuales
 st.markdown("""
 <style>
-    .manual-header {
-        background-color: #f0f2f6;
-        padding: 8px;
-        border-radius: 5px;
-        border-left: 5px solid #ff4b4b;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    .auto-header {
-        background-color: #e8f4f8;
-        padding: 8px;
-        border-radius: 5px;
-        border-left: 5px solid #1c83e1;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
+    .card-qs { background-color: #EBF5FB; border-left: 6px solid #1B4F72; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-hem { background-color: #FDEDEC; border-left: 6px solid #900C3F; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-uri { background-color: #FEF9E7; border-left: 6px solid #B7950B; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-cop { background-color: #F5EEF8; border-left: 6px solid #6C3483; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-obs { background-color: #EAEDED; border-left: 6px solid #2E4053; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-sero { background-color: #F9E79F; border-left: 6px solid #D4AC0D; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-endo { background-color: #D6EAF8; border-left: 6px solid #2874A6; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+    .card-cito { background-color: #FADBD8; border-left: 6px solid #C0392B; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. DATOS DEL PACIENTE ---
-st.subheader("1. Datos Generales del Paciente (Entrada Manual)")
+# ==========================================
+# BLOQUE 2: PACIENTE
+# ==========================================
+st.subheader("1. Datos Generales del Paciente")
 c1, c2, c3 = st.columns(3)
-
 with c1:
     estudio_id = st.text_input("📝 No. Estudio", "JL-27-26")
-    especie = st.text_input("🐶 Especie", "CANIDEO")
+    especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"])
     sexo = st.selectbox("♀️♂️ Sexo", ["HEMBRA", "MACHO"])
-
 with c2:
-    fecha = st.text_input("📅 Fecha", "12 DE JULIO DEL 2026")
-    raza = st.text_input("🐕 Raza", "MESTIZO")
+    fecha = st.text_input("📅 Fecha", "22 DE JULIO DEL 2026")
+    raza = st.text_input("🐕/🐈 Raza", "MESTIZO")
     edad = st.text_input("🎂 Edad", "7 AÑOS")
-
 with c3:
     medico = st.text_input("🩺 Médico Solicitante", "MVZ. JASMIN RIVERA")
     paciente = st.text_input("🏷️ Nombre / Identificación", "PIZZA PEREZ")
 
+es_felino = (especie == "FELINO")
 st.markdown("---")
 
-# --- 2. CAPTURA DE ESTUDIO ---
-tipo_estudio = st.selectbox("🔬 Selecciona el Estudio a Procesar:", ["Biometría Hemática", "Química Sanguínea", "Urianálisis"])
+# ==========================================
+# BLOQUE 3: ENRUTADOR
+# ==========================================
+col_cat, col_est = st.columns(2)
+with col_cat:
+    categoria = st.selectbox(
+        "📂 Categoría de Análisis",
+        ["Hematología", "Bioquímica Clínica (QS)", "Urianálisis y Copro", 
+         "Serología y Pruebas Rápidas", "Endocrinología", "Citología / Dermatología", "Paquetes y Perfiles"]
+    )
+with col_est:
+    if categoria == "Hematología":
+        tipo_estudio = st.selectbox("🔬 Estudio:", ["Hemograma Completo", "Fórmula Roja", "Fórmula Blanca", "Tiempos de Coagulación (TP, TTP)"])
+    elif categoria == "Bioquímica Clínica (QS)":
+        tipo_estudio = st.selectbox("🔬 Perfil:", ["QS 1 (Básica / Renal)", "QS 2 (Hepático I)", "QS 3 (Hepático II)", "QS 4 (Pancreático I)", "QS 5 (General / Completa)", "QS 6 (Pancreático II)", "QS 7 (Páncreas Endocrino / Lípidos)", "Electrolitos Sanguíneos (Na, K, Cl)"])
+    elif categoria == "Urianálisis y Copro":
+        tipo_estudio = st.selectbox("🔬 Estudio:", ["Urianálisis Completo", "Coproparasitoscópico por Flotación", "Coproparasitoscópico Serie (3 muestras)", "Perfil Coprológico Físico-Químico"])
+    elif categoria == "Serología y Pruebas Rápidas":
+        tipo_estudio = st.selectbox("🔬 Prueba:", ["Prueba Snap 4Dx (Canino)", "Prueba SIDA/Leucemia VIF/ViLeF (Felino)", "Prueba Rápida Parvovirus", "Prueba Rápida Giardia", "Prueba Rápida Moquillo"])
+    elif categoria == "Endocrinología":
+        tipo_estudio = st.selectbox("🔬 Estudio:", ["Perfil Tiroideo (T4 Tot, TSH)", "T4 Total", "Cortisol Basal"])
+    elif categoria == "Citología / Dermatología":
+        tipo_estudio = st.selectbox("🔬 Estudio:", ["Raspado Cutáneo (Ectoparásitos)", "Citología Ótica", "Citología de Masa/Piel"])
+    elif categoria == "Paquetes y Perfiles":
+        tipo_estudio = st.selectbox("🔬 Paquete:", ["Perfil General (Hemograma + QS 5)", "Perfil General Completo (Hemograma + QS 5 + Urianálisis)", "Paquete Renal (Hemograma + QS 1 + Urianálisis)", "Perfil Hepático-Renal (Hemograma + QS 1 + QS 2)", "Perfil Geriatra (Hemograma + QS 5 + Urianálisis + Copro)", "Perfil Gastrointestinal (Hemograma + QS 4 + Copro)", "Prequirúrgico 1 (Hemograma + Gluc, Urea, Creat, ALT, TP, TTP)", "Prequirúrgico 2 (Hemograma + Urea, Creat, Prot. Totales)", "Prequirúrgico 3 (Hemograma + QS 1 + TP, TTP)", "Paquete Adopción Responsable (Hemograma + Copro + Snap Serológico)"])
 
+necesita_roja = any(x in tipo_estudio for x in ["Hemograma", "Fórmula Roja", "Perfil", "Paquete", "Prequirúrgico"])
+necesita_blanca = any(x in tipo_estudio for x in ["Hemograma", "Fórmula Blanca", "Perfil", "Paquete", "Prequirúrgico"])
+necesita_qs = any(x in tipo_estudio for x in ["QS", "Perfil", "Paquete Renal", "Prequirúrgico", "Electrolitos"])
+necesita_uri = any(x in tipo_estudio for x in ["Urianálisis", "Paquete Renal", "Perfil Geriatra", "Perfil General Completo"])
+necesita_copro = any(x in tipo_estudio for x in ["Copro", "Gastrointestinal", "Geriatra", "Adopción"])
+necesita_sero = any(x in tipo_estudio for x in ["Snap", "SIDA/Leucemia", "Rápida", "Adopción"])
+necesita_endo = categoria == "Endocrinología"
+necesita_cito = categoria == "Citología / Dermatología"
+
+st.markdown("---")
+st.subheader(f"📋 Formulario de Entrada: {tipo_estudio}")
+
+# ==========================================
+# BLOQUE 4: RENDERIZADO DE FORMULARIOS
+# ==========================================
 datos_estudio = {}
 
-if tipo_estudio == "Biometría Hemática":
-    col_izq, col_der = st.columns(2)
-    
-    with col_izq:
-        st.markdown('<div class="manual-header">🔴 FÓRMULA ROJA - Captura Manual de Valores</div>', unsafe_allow_html=True)
-        
-        eritrocitos = st.number_input("Eritrocitos (millones por mm³)", value=5.60, step=0.01, format="%.2f")
-        hemoglobina = st.number_input("Hemoglobina (g/dl)", value=13.00, step=0.1, format="%.1f")
-        hematocrito = st.number_input("Hematocrito (%)", value=38.00, step=0.1, format="%.1f")
-        vsg = st.text_input("V.S.G. (mm/h)", "4")
-        plaquetas = st.text_input("Plaquetas (por mm³)", "208,000")
-        reticulocitos = st.text_input("Reticulocitos (%)", "0.1%")
+if necesita_roja or necesita_blanca:
+    datos_estudio.update(modulo_hematologia(es_felino, necesita_roja, necesita_blanca))
+if necesita_qs:
+    datos_estudio.update(modulo_bioquimica(es_felino, tipo_estudio))
+if necesita_sero:
+    datos_estudio.update(modulo_serologia(tipo_estudio))
+if necesita_endo:
+    datos_estudio.update(modulo_endocrino(es_felino))
+if necesita_cito:
+    datos_estudio.update(modulo_citologia())
+if necesita_uri:
+    datos_estudio.update(modulo_urianalisis(es_felino))
+if necesita_copro:
+    datos_estudio.update(modulo_copro())
 
-        # --- CÁLCULOS AUTOMÁTICOS FÓRMULA ROJA ---
-        vgm_calc = (hematocrito * 10) / eritrocitos if eritrocitos > 0 else 0.0
-        hgm_calc = (hemoglobina * 10) / eritrocitos if eritrocitos > 0 else 0.0
-        chgm_calc = (hemoglobina * 100) / hematocrito if hematocrito > 0 else 0.0
-
-        st.markdown('<div class="auto-header">⚡ ÍNDICES ERITROCITARIOS (Calculados Automáticamente)</div>', unsafe_allow_html=True)
-        st.info(f"**V.G.M.:** {vgm_calc:.1f} micras³\n\n"
-                f"**H.G.M.:** {hgm_calc:.1f} Uug\n\n"
-                f"**C.H.G.M.:** {chgm_calc:.1f} %")
-
-        datos_estudio['eritrocitos'] = f"{eritrocitos:.2f}"
-        datos_estudio['hemoglobina'] = f"{hemoglobina:.1f}"
-        datos_estudio['hematocrito'] = f"{hematocrito:.1f}"
-        datos_estudio['vgm'] = f"{vgm_calc:.1f}"
-        datos_estudio['hgm'] = f"{hgm_calc:.1f}"
-        datos_estudio['chgm'] = f"{chgm_calc:.1f}"
-        datos_estudio['vsg'] = vsg
-        datos_estudio['plaquetas'] = plaquetas
-        datos_estudio['reticulocitos'] = reticulocitos
-
-    with col_der:
-        st.markdown('<div class="manual-header">⚪ FÓRMULA BLANCA - Conteo y Diferencial Leucocitario</div>', unsafe_allow_html=True)
-        
-        leucocitos_totales = st.number_input("Leucocitos Totales (Cels/µl)", value=10200, step=100)
-        
-        st.write("**Porcentajes Relativos (%)**")
-        pct_linfocitos = st.number_input("% Linfocitos", value=22.0, step=0.5)
-        pct_monocitos = st.number_input("% Monocitos", value=1.0, step=0.5)
-        pct_eosinofilos = st.number_input("% Eosinófilos", value=2.0, step=0.5)
-        pct_basofilos = st.number_input("% Basófilos", value=0.0, step=0.5)
-        pct_mielocitos = st.number_input("% Mielocitos", value=0.0, step=0.5)
-        pct_juveniles = st.number_input("% Juveniles", value=0.0, step=0.5)
-        
-        st.markdown("---")
-        st.write("**Desglose de Neutrófilos**")
-        pct_banda = st.number_input("% Neutrófilos en Banda", value=2.0, step=0.5)
-        pct_segmentados = st.number_input("% Neutrófilos Segmentados", value=73.0, step=0.5)
-        
-        pct_neutrofilos_total = pct_banda + pct_segmentados
-
-        # --- CÁLCULOS AUTOMÁTICOS FÓRMULA BLANCA ---
-        st.markdown('<div class="auto-header">⚡ VALORES ABSOLUTOS (Calculados Automáticamente)</div>', unsafe_allow_html=True)
-        
-        poblaciones_pct = {
-            "Linfocitos": pct_linfocitos,
-            "Monocitos": pct_monocitos,
-            "Eosinófilos": pct_eosinofilos,
-            "Basófilos": pct_basofilos,
-            "Mielocitos": pct_mielocitos,
-            "Juveniles": pct_juveniles,
-            "Banda": pct_banda,
-            "Segmentados": pct_segmentados
-        }
-        
-        diferencial_completo = {}
-        abs_summary = ""
-        for nombre, pct_val in poblaciones_pct.items():
-            abs_val = int((leucocitos_totales * pct_val) / 100)
-            diferencial_completo[nombre] = (pct_val, abs_val)
-            abs_summary += f"• **{nombre}:** {abs_val:,} Cels/µl ({pct_val}%)\n"
-            
-        st.info(f"**Neutrófilos Totales:** {pct_neutrofilos_total}%\n\n" + abs_summary)
-
-        datos_estudio['leucocitos_totales'] = f"{leucocitos_totales:,}"
-        datos_estudio['pct_neutrofilos_total'] = pct_neutrofilos_total
-        datos_estudio['diferencial'] = diferencial_completo
-
-    st.markdown("---")
-    st.markdown('<div class="manual-header">✍️ OBSERVACIONES E INTERPRETACIÓN</div>', unsafe_allow_html=True)
-    datos_estudio['formula_roja_obs'] = st.text_area("Fórmula Roja (Observaciones)", "ANISOCITOSIS LEVE, EQUINOCITOS ++, EQUINOCITOS +++")
-    datos_estudio['interpretacion'] = st.text_area("Interpretación", "LEUCOCITOSIS CON NEUTROFILIA HIPERSEGMENTADA.")
-
-# --- 3. GENERACIÓN DE PDF ---
 st.markdown("---")
-if st.button("📄 Generar PDF del Reporte Oficial", type="primary"):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    
-    # A) FONDO Y MEMBRETE (TAMAÑO CARTA COMPLETO)
-    if os.path.exists("marca_agua.png"):
-        c.drawImage("marca_agua.png", 0, 0, width=612, height=792)
+st.markdown('<div class="card-obs"><b>💬 OBSERVACIONES / NOTAS CLÍNICAS</b></div>', unsafe_allow_html=True)
+observaciones_txt = st.text_area("Notas para el reporte:", "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.")
 
-    # B) DATOS DEL PACIENTE (ALINEADOS DEBAJO DE LA LÍNEA DEL ENCABEZADO)
-    y_paciente = 660
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(45, y_paciente, "ESTUDIO:")
-    c.drawString(400, y_paciente, "FECHA:")
-    c.drawString(45, y_paciente - 14, "ESPECIE:")
-    c.drawString(45, y_paciente - 28, "RAZA:")
-    c.drawString(45, y_paciente - 42, "SEXO:")
-    c.drawString(45, y_paciente - 56, "IDENTIFICACION:")
-    c.drawString(45, y_paciente - 70, "EDAD:")
-
-    c.setFont("Helvetica", 8)
-    c.drawString(130, y_paciente, estudio_id)
-    c.drawString(445, y_paciente, fecha)
-    c.drawString(130, y_paciente - 14, especie)
-    c.drawString(130, y_paciente - 28, raza)
-    c.drawString(130, y_paciente - 42, sexo)
-    c.drawString(130, y_paciente - 56, paciente)
-    c.drawString(130, y_paciente - 70, edad)
-
-    # C) TITULO DEL ESTUDIO
-    y = y_paciente - 95
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(45, y, "BIOMETRÍA HEMATICA")
-    c.drawString(380, y, "VALORES DE REFERENCIA")
-    
-    y -= 14
-    c.setFont("Helvetica", 7.5)
-    
-    # Tabla Serie Roja
-    items_roja = [
-        ("ERITROCITOS:", datos_estudio['eritrocitos'], "millones por mm³", "5.5 - 8.5"),
-        ("HEMOGLOBINA:", datos_estudio['hemoglobina'], "g/dl", "12 - 19.5"),
-        ("HEMATOCRITO:", datos_estudio['hematocrito'], "%", "33 - 55"),
-        ("V.G.M.:", datos_estudio['vgm'], "micras 3", "60 - 77"),
-        ("C.H.G.M.:", datos_estudio['chgm'], "%", "32 - 36"),
-        ("H.G.M.:", datos_estudio['hgm'], "Uug", "19.5 - 24"),
-        ("V.S.G.:", datos_estudio['vsg'], "mm/h", "0 - 13")
-    ]
-    
-    for param, res, unidad, ref in items_roja:
-        c.drawString(45, y, param)
-        c.drawString(180, y, str(res))
-        c.drawString(240, y, unidad)
-        c.drawString(380, y, ref)
-        y -= 12
-
-    # Encabezado Leucocitos
-    y -= 5
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(380, y, "VALORES DE REFERENCIA")
-    
-    y -= 12
-    c.setFont("Helvetica", 7.5)
-    c.drawString(45, y, "LEUCOCITOS:")
-    c.drawString(180, y, "RANGO %")
-    c.drawString(270, y, "VALORES ABSOLUTOS")
-    c.drawString(410, y, "Cels/µl")
-
-    y -= 12
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(45, y, "TOTAL:")
-    c.drawString(180, y, str(datos_estudio['leucocitos_totales']))
-    c.drawString(410, y, "6,000 - 15,000")
-
-    ref_poblaciones = {
-        "Linfocitos": ("12 - 30%", "1,000 - 4,800"),
-        "Monocitos": ("2 - 10%", "150 - 1,350"),
-        "Neutrófilos": (f"{datos_estudio['pct_neutrofilos_total']}%", "3,000 - 11,000"),
-        "Eosinófilos": ("2 - 10%", "100 - 1,250"),
-        "Basófilos": ("0%", "0"),
-        "Mielocitos": ("0%", "0"),
-        "Juveniles": ("0%", "0"),
-        "Banda": ("0 - 3%", "0 - 500"),
-        "Segmentados": ("60 - 77%", "3,000 - 11,000")
-    }
-
-    y -= 12
-    c.setFont("Helvetica", 7.5)
-    for celula, (pct_val, abs_val) in datos_estudio['diferencial'].items():
-        if celula == "Eosinófilos":
-            # Línea de Neutrófilos Totales
-            c.setFont("Helvetica-Bold", 7.5)
-            c.drawString(45, y, "NEUTROFILOS:")
-            pct_n, abs_n = ref_poblaciones["Neutrófilos"]
-            c.drawString(180, y, pct_n)
-            c.drawString(410, y, abs_n)
-            y -= 11
-            c.setFont("Helvetica", 7.5)
-
-        pct_ref, abs_ref = ref_poblaciones.get(celula, ("-", "-"))
-        
-        # Sangría para los tipos de neutrófilos
-        indent = 65 if celula in ["Mielocitos", "Juveniles", "Banda", "Segmentados"] else 45
-        c.drawString(indent, y, celula.upper() + ":")
-        c.drawString(180, y, str(pct_val))
-        c.drawString(270, y, f"{abs_val:,}")
-        c.drawString(410, y, abs_ref)
-        y -= 11
-
-    # Plaquetas y Reticulocitos
-    y -= 5
-    c.drawString(45, y, f"PLAQUETAS:  {datos_estudio['plaquetas']}")
-    c.drawString(380, y, "200 - 400 mil por mm³")
-    y -= 12
-    c.drawString(45, y, f"RETICULOCITOS:  {datos_estudio['reticulocitos']}")
-    c.drawString(380, y, "0 - .15%")
-
-    # Observaciones e Interpretación
-    y -= 20
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(45, y, "FORMULA ROJA:")
-    c.setFont("Helvetica", 8)
-    c.drawString(130, y, datos_estudio['formula_roja_obs'])
-    
-    y -= 14
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(45, y, "INTERPRETACION:")
-    c.setFont("Helvetica", 8)
-    c.drawString(130, y, datos_estudio['interpretacion'])
-
-    # D) PIE DE PÁGINA Y FIRMAS (ALINEADOS A LA PARTE INFERIOR)
-    c.setFont("Helvetica", 8)
-    c.drawString(45, 95, "Sin más por el momento le enviamos un cordial saludo.")
-    
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(45, 75, "Patóloga Clínica Responsable")
-    c.drawString(45, 62, "M.V.Z Norabel Pérez Conde")
-    c.drawString(45, 50, "CED. PROF 2345183")
-
-    c.drawString(320, 62, "M.M.V.Z Rosario Arvizu Venegas")
-    c.drawString(320, 50, "CED. PROF 3971744")
-
-    c.save()
-    
-    st.success("¡PDF generado con membrete exacto y cálculos automáticos!")
-    st.download_button(
-        label="⬇️ Descargar Reporte PDF",
-        data=buffer.getvalue(),
-        file_name=f"Reporte_BH_{paciente}.pdf",
-        mime="application/pdf"
+# ==========================================
+# BLOQUE 5: GENERADOR PDF
+# ==========================================
+st.markdown("---")
+if st.button("📄 Generar PDF Oficial CEDIVET", type="primary"):
+    pdf_bytes, nombre_archivo = generar_pdf_cedivet(
+        estudio_id, paciente, especie, raza, fecha, medico, sexo, edad, 
+        tipo_estudio, datos_estudio, observaciones_txt
     )
+    st.success("¡Reporte generado exitosamente!")
+    st.download_button(label="⬇️ Descargar PDF", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
