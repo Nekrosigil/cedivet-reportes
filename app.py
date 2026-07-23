@@ -92,7 +92,7 @@ def_med = datos_recuperados["medico"] if datos_recuperados else "MVZ. JASMIN RIV
 def_pac = datos_recuperados["paciente"] if datos_recuperados else "PIZZA PEREZ"
 
 with c1:
-    estudio_id = st.text_input("📝 No. Estudio (Recomendación: usa un sufijo único si repites clave, ej. JL-27-26-02)", def_id)
+    estudio_id = st.text_input("📝 No. Estudio (Recomendación: usa un No. Estudio único si repites clave, ej. JL-27-26-02)", def_id)
     especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"], index=def_esp_idx)
     sexo = st.selectbox("♀️♂️ Sexo", ["HEMBRA", "MACHO"])
 with c2:
