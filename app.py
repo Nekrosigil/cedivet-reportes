@@ -1,12 +1,22 @@
-# app.py
 import streamlit as st
+import json
+from supabase import create_client, Client
 
 # Importamos nuestros módulos locales
 from formularios import (
-    modulo_hematologia, modulo_bioquimica, modulo_serologia, 
+    modulo_hematologia, modulo_bioquimica, modulo_serologia,  
     modulo_endocrino, modulo_citologia, modulo_urianalisis, modulo_copro
 )
 from generador_pdf import generar_pdf_cedivet
+
+# Inicializar cliente de Supabase usando los secretos de Streamlit
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase: Client = init_supabase()
 
 # ==========================================
 # BLOQUE 1: CONFIGURACIÓN
@@ -29,21 +39,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
+# BARRA LATERAL: ARCHIVERO CLÍNICO (BÚSQUEDA)
+# ==========================================
+st.sidebar.header("📁 Archivero Clínico")
+estudio_a_buscar = st.sidebar.text_input("Buscar ID de Estudio (ej. JL-27-26)")
+
+datos_recuperados = None
+
+if estudio_a_buscar:
+    response = supabase.table("estudios").select("*").eq("estudio_id", estudio_a_buscar).execute()
+    if response.data:
+        st.sidebar.success("¡Estudio encontrado!")
+        datos_recuperados = response.data[0]
+    else:
+        st.sidebar.warning("No se encontró ningún estudio con ese ID.")
+
+# ==========================================
 # BLOQUE 2: PACIENTE
 # ==========================================
 st.subheader("1. Datos Generales del Paciente")
 c1, c2, c3 = st.columns(3)
 with c1:
-    estudio_id = st.text_input("📝 No. Estudio", "JL-27-26")
-    especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"])
+    estudio_id = st.text_input("📝 No. Estudio", datos_recuperados["estudio_id"] if datos_recuperados else "JL-27-26")
+    especie = st.selectbox("🐾 Especie", ["CANIDEO", "FELINO"], index=0 if not datos_recuperados or datos_recuperados["especie"] == "CANIDEO" else 1)
     sexo = st.selectbox("♀️♂️ Sexo", ["HEMBRA", "MACHO"])
 with c2:
-    fecha = st.text_input("📅 Fecha", "22 DE JULIO DEL 2026")
-    raza = st.text_input("🐕/🐈 Raza", "MESTIZO")
-    edad = st.text_input("🎂 Edad", "7 AÑOS")
+    fecha = st.text_input("📅 Fecha", datos_recuperados["fecha"] if datos_recuperados else "22 DE JULIO DEL 2026")
+    raza = st.text_input("🐕/🐈 Raza", datos_recuperados["raza"] if datos_recuperados else "MESTIZO")
+    edad = st.text_input("🎂 Edad", datos_recuperados["edad"] if datos_recuperados else "7 AÑOS")
 with c3:
-    medico = st.text_input("🩺 Médico Solicitante", "MVZ. JASMIN RIVERA")
-    paciente = st.text_input("🏷️ Nombre / Identificación", "PIZZA PEREZ")
+    medico = st.text_input("🩺 Médico Solicitante", datos_recuperados["medico"] if datos_recuperados else "MVZ. JASMIN RIVERA")
+    paciente = st.text_input("🏷️ Nombre / Identificación", datos_recuperados["paciente"] if datos_recuperados else "PIZZA PEREZ")
 
 es_felino = (especie == "FELINO")
 st.markdown("---")
@@ -108,16 +134,41 @@ if necesita_copro:
 
 st.markdown("---")
 st.markdown('<div class="card-obs"><b>💬 OBSERVACIONES / NOTAS CLÍNICAS</b></div>', unsafe_allow_html=True)
-observaciones_txt = st.text_area("Notas para el reporte:", "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.")
+observaciones_txt = st.text_area("Notas para el reporte:", datos_recuperados.get("observaciones", "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.") if datos_recuperados else "Muestra procesada bajo protocolos estándares. Correlacionar con cuadro clínico.")
 
 # ==========================================
-# BLOQUE 5: GENERADOR PDF
+# BLOQUE 5: GENERADOR PDF Y BASE DE DATOS
 # ==========================================
 st.markdown("---")
 if st.button("📄 Generar PDF Oficial CEDIVET", type="primary"):
+    
+    # 1. Generar el archivo PDF
     pdf_bytes, nombre_archivo = generar_pdf_cedivet(
         estudio_id, paciente, especie, raza, fecha, medico, sexo, edad, 
         tipo_estudio, datos_estudio, observaciones_txt
     )
+    
+    # 2. Preparar el paquete para Supabase
+    paquete_datos = {
+        "estudio_id": estudio_id,
+        "paciente": paciente,
+        "especie": especie,
+        "raza": raza,
+        "fecha": fecha,
+        "medico": medico,
+        "sexo": sexo,
+        "edad": edad,
+        "tipo_estudio": tipo_estudio,
+        "datos_estudio": datos_estudio,  
+        "observaciones": observaciones_txt
+    }
+
+    # 3. Guardar o actualizar en Supabase (Upsert basado en 'estudio_id')
+    try:
+        supabase.table("estudios").upsert(paquete_datos, on_conflict="estudio_id").execute()
+        st.success("¡Estudio guardado y sincronizado en el archivero de la nube exitosamente!")
+    except Exception as e:
+        st.error(f"Error al guardar en la base de datos: {e}")
+
     st.success("¡Reporte generado exitosamente!")
     st.download_button(label="⬇️ Descargar PDF", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf")
