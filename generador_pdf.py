@@ -3,13 +3,13 @@ import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
-    BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle, PageBreak
+    BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ==========================================
-# CANVAS EN DOS PASADAS PARA PAGINACIÓN REAL
+# CANVAS SOLO PARA LA NUMERACIÓN (ÚLTIMA CAPA)
 # ==========================================
 class NumberedCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
@@ -24,18 +24,10 @@ class NumberedCanvas(canvas.Canvas):
         num_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
-            
-            # 1. Dibujar Marca de Agua / Fondo
-            if os.path.exists("marca_agua.jpg"):
-                self.drawImage("marca_agua.jpg", 0, 0, width=612, height=792)
-            elif os.path.exists("marca_agua.png"):
-                self.drawImage("marca_agua.png", 0, 0, width=612, height=792)
-
-            # 2. Dibujar Numeración de Página
+            # Solo escribimos texto encima, nada de imágenes aquí
             self.setFont("Helvetica", 8)
             self.setFillColor(colors.HexColor("#5D6D7E"))
             self.drawRightString(567, 25, f"Página {self._pageNumber} de {num_pages}")
-            
             super().showPage()
         super().save()
 
@@ -53,7 +45,7 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         bottomMargin=110
     )
 
-    # Frame principal donde fluye el contenido (entre encabezado y firma)
+    # El área donde el contenido puede escribirse libremente sin tocar encabezado ni firma
     frame_contenido = Frame(
         doc.leftMargin,
         doc.bottomMargin,
@@ -66,8 +58,17 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         rightPadding=0
     )
 
-    # Dibujado del encabezado estático del paciente
-    def dibujar_encabezado_paciente(canvas_obj, doc_obj):
+    # Esta función se ejecuta PRIMERO en cada hoja nueva (Capa 1: Fondo y Textos Base)
+    def dibujar_fondo_y_encabezado(canvas_obj, doc_obj):
+        canvas_obj.saveState()
+        
+        # 1. Dibujar marca de agua AL FONDO
+        if os.path.exists("marca_agua.jpg"):
+            canvas_obj.drawImage("marca_agua.jpg", 0, 0, width=612, height=792)
+        elif os.path.exists("marca_agua.png"):
+            canvas_obj.drawImage("marca_agua.png", 0, 0, width=612, height=792)
+
+        # 2. Dibujar Encabezado del paciente
         y = 665
         canvas_obj.setFont("Helvetica-Bold", 8)
         canvas_obj.setFillColor(colors.HexColor("#1A252C"))
@@ -94,8 +95,11 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         canvas_obj.drawString(445, y - 12, str(medico or ''))
         canvas_obj.drawString(445, y - 24, str(sexo or ''))
         canvas_obj.drawString(445, y - 36, str(edad or ''))
+        
+        canvas_obj.restoreState()
 
-    template = PageTemplate(id='HojaEstudio', frames=frame_contenido, onPage=dibujar_encabezado_paciente)
+    # Enlazamos el template al documento
+    template = PageTemplate(id='HojaEstudio', frames=frame_contenido, onPage=dibujar_fondo_y_encabezado)
     doc.addPageTemplates([template])
 
     styles = getSampleStyleSheet()
@@ -103,10 +107,8 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
     estilo_celda_hdr = ParagraphStyle('CeldaHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=9, textColor=colors.HexColor("#2C3E50"))
     estilo_obs = ParagraphStyle('Obs', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=8, leading=11, textColor=colors.HexColor("#2C3E50"))
 
-    # Helper para armar tablas dinámicas
     def crear_bloque_tabla(titulo, lista_datos, color_hex="#117A65"):
         elementos = []
-        
         hdr_table = Table([[titulo]], colWidths=[522], rowHeights=[16])
         hdr_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(color_hex)),
@@ -114,8 +116,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 8.5),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
         ]))
         elementos.append(hdr_table)
 
@@ -131,7 +131,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
             r = str(fila[1]) if len(fila) > 1 else ""
             u = str(fila[2]) if len(fila) > 2 else ""
             ref = str(fila[3]) if len(fila) > 3 else ""
-            
             tabla_data.append([
                 Paragraph(p, estilo_celda),
                 Paragraph(r, estilo_celda),
@@ -154,7 +153,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
 
     story = []
 
-    # Bloques condicionales
     if datos_estudio.get('hem_roja'):
         story.extend(crear_bloque_tabla("🔴 FÓRMULA ROJA (ERITROGRAMA)", datos_estudio['hem_roja'], "#900C3F"))
 
@@ -167,7 +165,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
     if datos_estudio.get('endo_items'):
         story.extend(crear_bloque_tabla("⚕️ ENDOCRINOLOGÍA", datos_estudio['endo_items'], "#2874A6"))
 
-    # Urianálisis
     if datos_estudio.get('uri_fisico'):
         story.extend(crear_bloque_tabla("🧪 URIANÁLISIS - EXAMEN FÍSICO", datos_estudio['uri_fisico'], "#117A65"))
 
@@ -181,7 +178,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         story.append(Paragraph(f"<b>Observaciones Urinarias:</b> {datos_estudio['obs_urianalisis']}", estilo_obs))
         story.append(Spacer(1, 8))
 
-    # Copro / Sero / Cito
     if datos_estudio.get('copro_items'):
         story.append(Paragraph("<b>💩 COPROPARASITOSCÓPICO Y COPROLÓGICO</b>", estilo_celda_hdr))
         for param, val in datos_estudio['copro_items']:
@@ -200,7 +196,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
             story.append(Paragraph(f"{param}: {val}", estilo_celda))
         story.append(Spacer(1, 6))
 
-    # Observaciones Generales
     if observaciones_txt:
         hdr_obs = Table([["💬 OBSERVACIONES Y NOTAS CLÍNICAS"]], colWidths=[522], rowHeights=[16])
         hdr_obs.setStyle(TableStyle([
@@ -216,7 +211,7 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
             if line.strip():
                 story.append(Paragraph(line.strip(), estilo_obs))
 
-    # Generación con NumberedCanvas
+    # Construcción final usando el Canvas que solo numera
     doc.build(story, canvasmaker=NumberedCanvas)
 
     # Nomenclatura del archivo
@@ -224,7 +219,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
     tipo_clean = str(tipo_estudio or '').strip().replace(' ', '_').replace('(', '').replace(')', '').replace('+', 'Y')
     especie_clean = str(especie or '').strip().replace(' ', '_')
     paciente_clean = str(paciente or '').strip().replace(' ', '_')
-
     nombre_archivo_pdf = f"{estudio_clean}_{tipo_clean}_{especie_clean}_{paciente_clean}.pdf"
 
     return buffer.getvalue(), nombre_archivo_pdf
