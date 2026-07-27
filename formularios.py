@@ -185,15 +185,26 @@ def modulo_citologia():
 def modulo_urianalisis(es_felino):
     st.markdown('<div class="card-uri"><b>📋 URIANÁLISIS COMPLETO (EVALUACIÓN INTEGRAL)</b></div>', unsafe_allow_html=True)
     
+    # 1. Definición dinámica de valores de referencia según la especie
+    ref_uri = {
+        "ge": "> 1.035" if es_felino else "> 1.030",
+        "ph": "6.0 - 7.0" if es_felino else "6.0 - 7.5",
+        "prot": "Negativo" if es_felino else "Negativo / Trazas",
+        "bili": "Negativo (Siempre patológico)" if es_felino else "Negativo / Trazas (+ en machos)",
+        "hb": "Negativo",
+        "glu": "Negativo",
+        "cetonas": "Negativo"
+    }
+
     u_col1, u_col2, u_col3 = st.columns(3)
     
     with u_col1:
         st.caption("🧪 **EXAMEN FÍSICO**")
         volumen = st.text_input("Volumen (mL)", "3.0")
-        color = st.text_input("Color", "AMARILLO" if es_felino else "OCRE")
+        color = st.text_input("Color", "AMARILLO PALIDO" if es_felino else "OCRE")
         aspecto = st.text_input("Aspecto", "CLARO" if es_felino else "TURBIO")
         sedimento = st.text_input("Sedimento", "ESCASO" if es_felino else "ABUNDANTE")
-        ph = st.text_input("pH Urinario", "6.5" if es_felino else "6.5")
+        ph = st.text_input("pH Urinario", "6.0" if es_felino else "6.5")
         ge = st.text_input("Gravedad Específica", "1.040" if es_felino else "1.015")
 
     with u_col2:
@@ -210,7 +221,7 @@ def modulo_urianalisis(es_felino):
         c_vesicales = st.text_input("Células Vesicales", "1-2 POR CAMPO")
         c_transicionales = st.text_input("Células Transicionales", "NO SE OBSERVAN")
         c_renales = st.text_input("Células Renales", "NO SE OBSERVAN")
-        eritrocitos_u = st.text_input("Glóbulos Rojos", "2 POR CAMPO")
+        eritrocitos_u = st.text_input("Glóbulos Rojos", "0-2 POR CAMPO")
         leucocitos_u = st.text_input("Leucocitos", "10-15 POR CAMPO")
         
         crist_oxalato = st.text_input("Oxalato de Calcio", "NO SE OBSERVAN")
@@ -224,20 +235,10 @@ def modulo_urianalisis(es_felino):
     st.markdown("---")
     diag_uri = st.text_input("Diagnóstico Urinario / Observaciones", "SIN HALLAZGOS PATOLÓGICOS" if es_felino else "CISTITIS SEVERA, CRISTALURIA, PROTEINURIA SEVERA")
 
-    ref_uri = {
-        "ge": "> 1.035" if es_felino else "> 1.030",
-        "ph": "6.0 - 7.5",
-        "prot": "Negativo / Trazas",
-        "hb": "Negativo",
-        "glu": "Negativo",
-        "cetonas": "Negativo",
-        "bili": "Negativo"
-    }
-
     datos_locales['uri_items'] = [
         # Examen Físico
         ("VOLUMEN", volumen, "mL", "-"),
-        ("COLOR", color, "-", "Amarillo / Claro"),
+        ("COLOR", color, "-", "Amarillo pálido / Claro"),
         ("ASPECTO", aspecto, "-", "Claro / Transparente"),
         ("SEDIMENTO", sedimento, "-", "Escaso"),
         ("pH URINARIO", ph, "-", ref_uri["ph"]),
@@ -252,8 +253,8 @@ def modulo_urianalisis(es_felino):
         ("BILIRRUBINA", bilirrubina_u, "-", ref_uri["bili"]),
         
         # Examen Microscópico
-        ("CÉLULAS VESICALES", c_vesicales, "por campo", "Escasas"),
-        ("CÉLULAS TRANSICIONALES", c_transicionales, "por campo", "Escasas / Ausentes"),
+        ("CÉLULAS VESICALES", c_vesicales, "por campo", "Escasas (0 - 2)"),
+        ("CÉLULAS TRANSICIONALES", c_transicionales, "por campo", "Ausentes / Escasas"),
         ("CÉLULAS RENALES", c_renales, "por campo", "Ausentes"),
         ("GLÓBULOS ROJOS", eritrocitos_u, "por campo", "0 - 2 por campo"),
         ("LEUCOCITOS", leucocitos_u, "por campo", "0 - 5 por campo"),
