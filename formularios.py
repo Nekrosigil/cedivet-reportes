@@ -12,6 +12,7 @@ def modulo_hematologia(es_felino, necesita_roja, necesita_blanca):
             hto = st.number_input("Hematocrito (%)", value=38.0 if es_felino else 45.0, step=0.5)
             hb = st.number_input("Hemoglobina (g/dL)", value=12.0 if es_felino else 15.0, step=0.1)
             eritrocitos = st.number_input("Eritrocitos (x10^6/µL)", value=7.5 if es_felino else 6.8, step=0.1)
+            vsg = st.number_input("V.S.G. (mm/h)", value=0.0, step=1.0)
             
             vgm = (hto * 10) / eritrocitos if eritrocitos > 0 else 0.0
             hgm = (hb * 10) / eritrocitos if eritrocitos > 0 else 0.0
@@ -19,13 +20,16 @@ def modulo_hematologia(es_felino, necesita_roja, necesita_blanca):
             
             st.info(f"📊 **ÍNDICES:** VGM: {vgm:.1f} fL | HGM: {hgm:.1f} pg | CHGM: {chgm:.1f} g/dL")
             
+            obs_roja = st.text_input("Observaciones Fórmula Roja (ej. Anisocitosis, Acantocitos)", "SIN ALTERACIONES MORFOLÓGICAS")
+            
             ref_roja = {
-                "hto": "24.0 - 45.0" if es_felino else "37.0 - 55.0",
-                "hb": "8.0 - 15.0" if es_felino else "12.0 - 18.0",
+                "hto": "24.0 - 45.0" if es_felino else "33.0 - 55.0",
+                "hb": "8.0 - 15.0" if es_felino else "12.0 - 19.5",
                 "eri": "5.00 - 10.00" if es_felino else "5.50 - 8.50",
                 "vgm": "39.0 - 55.0" if es_felino else "60.0 - 77.0",
-                "hgm": "12.5 - 17.5" if es_felino else "19.5 - 24.5",
-                "chgm": "30.0 - 36.0" if es_felino else "32.0 - 36.0"
+                "hgm": "12.5 - 17.5" if es_felino else "19.5 - 24.0",
+                "chgm": "30.0 - 36.0" if es_felino else "32.0 - 36.0",
+                "vsg": "0 - 10" if es_felino else "0 - 13"
             }
 
             datos_locales['hem_roja'] = [
@@ -34,8 +38,10 @@ def modulo_hematologia(es_felino, necesita_roja, necesita_blanca):
                 ("ERITROCITOS", f"{eritrocitos:.2f}", "x10^6/µL", ref_roja["eri"]),
                 ("VGM", f"{vgm:.1f}", "fL", ref_roja["vgm"]),
                 ("HGM", f"{hgm:.1f}", "pg", ref_roja["hgm"]),
-                ("CHGM", f"{chgm:.1f}", "g/dL", ref_roja["chgm"])
+                ("CHGM", f"{chgm:.1f}", "g/dL", ref_roja["chgm"]),
+                ("V.S.G.", f"{vsg:.0f}", "mm/h", ref_roja["vsg"])
             ]
+            datos_locales['obs_formula_roja'] = obs_roja
 
     if necesita_blanca:
         with h_col2:
@@ -44,38 +50,51 @@ def modulo_hematologia(es_felino, necesita_roja, necesita_blanca):
             
             col_p1, col_p2 = st.columns(2)
             with col_p1:
+                pct_mielocitos = st.number_input("% Mielocitos", value=0.0, step=0.5)
+                pct_juveniles = st.number_input("% Juveniles", value=0.0, step=0.5)
                 pct_bandas = st.number_input("% Bandas", value=0.0, step=0.5)
                 pct_seg = st.number_input("% Segmentados", value=55.0 if es_felino else 70.0, step=0.5)
-                pct_linf = st.number_input("% Linfocitos", value=30.0 if es_felino else 20.0, step=0.5)
             with col_p2:
+                pct_linf = st.number_input("% Linfocitos", value=30.0 if es_felino else 20.0, step=0.5)
                 pct_mono = st.number_input("% Monocitos", value=5.0, step=0.5)
                 pct_eos = st.number_input("% Eosinófilos", value=8.0 if es_felino else 4.0, step=0.5)
                 pct_baso = st.number_input("% Basófilos", value=2.0 if es_felino else 1.0, step=0.5)
 
             leu_abs_total = leucocitos * 1000.0
             plaquetas = st.number_input("Plaquetas (x10^3/µL)", value=350.0, step=10.0)
+            reticulocitos = st.number_input("Reticulocitos (%)", value=0.1, step=0.05)
+            
+            obs_blanca = st.text_input("Interpretación / Diagnóstico Hematológico", "DENTRO DE PARÁMETROS NORMALES")
 
             ref_blanca = {
-                "leu": "5.5 - 19.5" if es_felino else "6.0 - 17.0",
-                "bandas": "0 - 300" if es_felino else "0 - 300",
-                "seg": "2500 - 12500" if es_felino else "3000 - 11500",
+                "leu": "5.5 - 19.5" if es_felino else "6.0 - 15.0",
+                "mielo": "0",
+                "juv": "0",
+                "bandas": "0 - 300" if es_felino else "0 - 500",
+                "seg": "2500 - 12500" if es_felino else "3000 - 11000",
                 "linf": "1500 - 7000" if es_felino else "1000 - 4800",
-                "mono": "0 - 850" if es_felino else "100 - 1400",
+                "mono": "0 - 850" if es_felino else "150 - 1350",
                 "eos": "100 - 1500" if es_felino else "100 - 1250",
-                "baso": "Raros" if es_felino else "Raros",
-                "plaq": "300 - 800" if es_felino else "200 - 500"
+                "baso": "0",
+                "plaq": "300 - 800" if es_felino else "200 - 400",
+                "reti": "0 - 0.15"
             }
 
             datos_locales['hem_blanca'] = [
                 ("LEUCOCITOS TOTALES", f"{leucocitos:.1f}", "x10^3/µL", ref_blanca["leu"]),
+                ("MIELOCITOS", f"{int((pct_mielocitos/100)*leu_abs_total)} ({pct_mielocitos}%)", "/µL", ref_blanca["mielo"]),
+                ("JUVENILES", f"{int((pct_juveniles/100)*leu_abs_total)} ({pct_juveniles}%)", "/µL", ref_blanca["juv"]),
                 ("BANDAS", f"{int((pct_bandas/100)*leu_abs_total)} ({pct_bandas}%)", "/µL", ref_blanca["bandas"]),
                 ("SEGMENTADOS", f"{int((pct_seg/100)*leu_abs_total)} ({pct_seg}%)", "/µL", ref_blanca["seg"]),
                 ("LINFOCITOS", f"{int((pct_linf/100)*leu_abs_total)} ({pct_linf}%)", "/µL", ref_blanca["linf"]),
                 ("MONOCITOS", f"{int((pct_mono/100)*leu_abs_total)} ({pct_mono}%)", "/µL", ref_blanca["mono"]),
                 ("EOSINÓFILOS", f"{int((pct_eos/100)*leu_abs_total)} ({pct_eos}%)", "/µL", ref_blanca["eos"]),
                 ("BASÓFILOS", f"{int((pct_baso/100)*leu_abs_total)} ({pct_baso}%)", "/µL", ref_blanca["baso"]),
-                ("PLAQUETAS", f"{plaquetas:.0f}", "x10^3/µL", ref_blanca["plaq"])
+                ("PLAQUETAS", f"{plaquetas:.0f}", "x10^3/µL", ref_blanca["plaq"]),
+                ("RETICULOCITOS", f"{reticulocitos:.2f}", "%", ref_blanca["reti"])
             ]
+            datos_locales['obs_formula_blanca'] = obs_blanca
+
     return datos_locales
 
 def modulo_bioquimica(es_felino, tipo_estudio):
@@ -94,6 +113,7 @@ def modulo_bioquimica(es_felino, tipo_estudio):
         alt = st.text_input("ALT [U/L]", "45.0" if es_felino else "58.7")
         ast = st.text_input("AST [U/L]", "30.0" if es_felino else "43.2")
         fa = st.text_input("Fosfatasa Alcalina (FA) [U/L]", "80.0" if es_felino else "196.0")
+        ck = st.text_input("Creatina Cinasa (CK) [U/L]", "213.0")
         bt = st.number_input("Bilirrubina Total (µmol/L)", value=5.0)
         bd = st.number_input("Bilirrubina Directa/Conjugada (µmol/L)", value=1.5)
         bi = bt - bd
@@ -109,12 +129,12 @@ def modulo_bioquimica(es_felino, tipo_estudio):
         lipasa = st.text_input("Lipasa [U/L]", "120.0")
 
     ref_qs = {
-        "gluc": "3.8 - 7.9" if es_felino else "3.8 - 6.8", "urea": "4.9 - 11.9" if es_felino else "3.5 - 9.0",
-        "creat": "70 - 160" if es_felino else "44 - 130", "alt": "12 - 130" if es_felino else "10 - 100",
-        "ast": "0 - 48" if es_felino else "0 - 50", "fa": "14 - 111" if es_felino else "20 - 150",
-        "pt": "60 - 80" if es_felino else "54 - 75", "alb": "28 - 39" if es_felino else "26 - 40",
-        "glob": "26 - 51" if es_felino else "27 - 44", "ag": "0.6 - 1.2" if es_felino else "0.7 - 1.5",
-        "bili": "0 - 15.0" if es_felino else "0 - 15.0", "ami": "500 - 1500" if es_felino else "300 - 1500",
+        "gluc": "3.8 - 7.9" if es_felino else "3.3 - 6.8", "urea": "4.9 - 11.9" if es_felino else "2.1 - 7.91",
+        "creat": "70 - 160" if es_felino else "60 - 126", "alt": "12 - 130" if es_felino else "4.0 - 70.0",
+        "ast": "0 - 48" if es_felino else "12.0 - 55.0", "fa": "14 - 111" if es_felino else "6.0 - 189.0",
+        "ck": "17 - 213", "pt": "60 - 80" if es_felino else "56 - 75", "alb": "28 - 39" if es_felino else "29 - 40",
+        "glob": "26 - 51" if es_felino else "24 - 39", "ag": "0.6 - 1.2" if es_felino else "0.7 - 1.0",
+        "bili": "0 - 15.0" if es_felino else "0.2 - 0.5", "ami": "500 - 1500" if es_felino else "300 - 1500",
         "lip": "0 - 250" if es_felino else "0 - 500",
     }
 
@@ -126,8 +146,8 @@ def modulo_bioquimica(es_felino, tipo_estudio):
     elif "Hepático" in tipo_estudio or "QS 2" in tipo_estudio or "QS 3" in tipo_estudio:
         datos_locales['qs_items'] = [
             ("ALT", alt, "U/L", ref_qs["alt"]), ("AST", ast, "U/L", ref_qs["ast"]),
-            ("FOSFATASA ALCALINA", fa, "U/L", ref_qs["fa"]), ("BILIRRUBINA TOTAL", f"{bt:.1f}", "µmol/L", ref_qs["bili"]),
-            ("BILIRRUBINA DIRECTA", f"{bd:.1f}", "µmol/L", "-"), ("BILIRRUBINA INDIRECTA", f"{bi:.1f}", "µmol/L", "-"),
+            ("FOSFATASA ALCALINA", fa, "U/L", ref_qs["fa"]), ("CK", ck, "U/L", ref_qs["ck"]),
+            ("BILIRRUBINA TOTAL", f"{bt:.1f}", "µmol/L", ref_qs["bili"]),
             ("PROTEINAS TOTALES", f"{pt:.1f}", "g/L", ref_qs["pt"]), ("ALBUMINA", f"{alb:.1f}", "g/L", ref_qs["alb"]),
             ("GLOBULINAS", f"{glob:.1f}", "g/L", ref_qs["glob"]), ("RELACION A/G", f"{rel_ag:.2f}", "-", ref_qs["ag"])
         ]
