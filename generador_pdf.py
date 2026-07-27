@@ -94,9 +94,39 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         dibujar_encabezado_bloque(c, "⚕️ ENDOCRINOLOGÍA", y, "#2874A6")
         y = dibujar_tabla_estudio(c, datos_estudio['endo_items'], y - 14)
 
-    if 'uri_items' in datos_estudio:
-        dibujar_encabezado_bloque(c, "📋 URIANÁLISIS", y, "#B7950B")
-        y = dibujar_tabla_estudio(c, datos_estudio['uri_items'], y - 14)
+# ==========================================
+# SECCIÓN: URIANÁLISIS COMPLETO
+# ==========================================
+if 'uri_fisico' in datos_estudio or 'uri_quimico' in datos_estudio or 'uri_micro' in datos_estudio:
+    
+    # 1. Examen Físico
+    if 'uri_fisico' in datos_estudio and datos_estudio['uri_fisico']:
+        elementos.append(Paragraph("<b>URIANÁLISIS - EXAMEN FÍSICO</b>", estilo_subtitulo))
+        tabla_fisico = [["PARÁMETRO", "RESULTADO", "UNIDADES", "VALOR DE REFERENCIA"]]
+        tabla_fisico.extend(datos_estudio['uri_fisico'])
+        elementos.append(crear_tabla_estandar(tabla_fisico))
+        elementos.append(Spacer(1, 8))
+
+    # 2. Examen Químico
+    if 'uri_quimico' in datos_estudio and datos_estudio['uri_quimico']:
+        elementos.append(Paragraph("<b>URIANÁLISIS - EXAMEN QUÍMICO</b>", estilo_subtitulo))
+        tabla_quimico = [["PARÁMETRO", "RESULTADO", "UNIDADES", "VALOR DE REFERENCIA"]]
+        tabla_quimico.extend(datos_estudio['uri_quimico'])
+        elementos.append(crear_tabla_estandar(tabla_quimico))
+        elementos.append(Spacer(1, 8))
+
+    # 3. Examen Microscópico (Sedimento)
+    if 'uri_micro' in datos_estudio and datos_estudio['uri_micro']:
+        elementos.append(Paragraph("<b>URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA</b>", estilo_subtitulo))
+        tabla_micro = [["PARÁMETRO", "RESULTADO", "UNIDADES", "VALOR DE REFERENCIA"]]
+        tabla_micro.extend(datos_estudio['uri_micro'])
+        elementos.append(crear_tabla_estandar(tabla_micro))
+        elementos.append(Spacer(1, 8))
+
+    # Observaciones / Diagnóstico Urinario
+    if datos_estudio.get('obs_urianalisis'):
+        elementos.append(Paragraph(f"<b>Observaciones:</b> {datos_estudio['obs_urianalisis']}", estilo_texto))
+        elementos.append(Spacer(1, 10))
 
     if 'copro_items' in datos_estudio:
         dibujar_encabezado_bloque(c, "💩 COPROPARASITOSCÓPICO Y COPROLÓGICO", y, "#6C3483")
