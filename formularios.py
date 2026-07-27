@@ -183,6 +183,7 @@ def modulo_citologia():
     return {'cito_items': [("ORIGEN", sitio), ("DESCRIPCIÓN", hallazgo)]}
 
 def modulo_urianalisis(es_felino):
+    datos_locales = {}
     st.markdown('<div class="card-uri"><b>📋 URIANÁLISIS COMPLETO (EVALUACIÓN INTEGRAL)</b></div>', unsafe_allow_html=True)
     
     # 1. Definición dinámica de valores de referencia según la especie
