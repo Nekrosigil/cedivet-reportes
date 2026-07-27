@@ -184,9 +184,10 @@ def modulo_citologia():
 
 def modulo_urianalisis(es_felino):
     datos_locales = {}
+    
     st.markdown('<div class="card-uri"><b>📋 URIANÁLISIS COMPLETO (EVALUACIÓN INTEGRAL)</b></div>', unsafe_allow_html=True)
     
-    # 1. Definición dinámica de valores de referencia según la especie
+    # Referencias dinámicas según especie
     ref_uri = {
         "ge": "> 1.035" if es_felino else "> 1.030",
         "ph": "6.0 - 7.0" if es_felino else "6.0 - 7.5",
@@ -236,24 +237,28 @@ def modulo_urianalisis(es_felino):
     st.markdown("---")
     diag_uri = st.text_input("Diagnóstico Urinario / Observaciones", "SIN HALLAZGOS PATOLÓGICOS" if es_felino else "CISTITIS SEVERA, CRISTALURIA, PROTEINURIA SEVERA")
 
-    datos_locales['uri_items'] = [
-        # Examen Físico
+    # 1. EXAMEN FÍSICO
+    datos_locales['uri_fisico'] = [
         ("VOLUMEN", volumen, "mL", "-"),
         ("COLOR", color, "-", "Amarillo pálido / Claro"),
         ("ASPECTO", aspecto, "-", "Claro / Transparente"),
         ("SEDIMENTO", sedimento, "-", "Escaso"),
         ("pH URINARIO", ph, "-", ref_uri["ph"]),
-        ("GRAVEDAD ESPECÍFICA", ge, "-", ref_uri["ge"]),
-        
-        # Examen Químico
+        ("GRAVEDAD ESPECÍFICA", ge, "-", ref_uri["ge"])
+    ]
+    
+    # 2. EXAMEN QUÍMICO
+    datos_locales['uri_quimico'] = [
         ("HEMOGLOBINA / SANGRE", hb_u, "-", ref_uri["hb"]),
         ("PROTEÍNA URINARIA", prot_u, "-", ref_uri["prot"]),
         ("GLUCOSA", glu_u, "-", ref_uri["glu"]),
         ("CUERPOS CETÓNICOS", cetonas, "-", ref_uri["cetonas"]),
         ("UROBILINÓGENO", urobilinogeno, "-", "Negativo"),
-        ("BILIRRUBINA", bilirrubina_u, "-", ref_uri["bili"]),
-        
-        # Examen Microscópico
+        ("BILIRRUBINA", bilirrubina_u, "-", ref_uri["bili"])
+    ]
+    
+    # 3. EXAMEN MICROSCÓPICO (SEDIMENTO)
+    datos_locales['uri_micro'] = [
         ("CÉLULAS VESICALES", c_vesicales, "por campo", "Escasas (0 - 2)"),
         ("CÉLULAS TRANSICIONALES", c_transicionales, "por campo", "Ausentes / Escasas"),
         ("CÉLULAS RENALES", c_renales, "por campo", "Ausentes"),
