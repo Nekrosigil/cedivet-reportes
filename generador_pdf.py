@@ -1,14 +1,12 @@
 import os
 import io
-import traceback
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
 # ==========================================
-# CANVAS ESPECIAL: NUMERACIÓN Y MARCA DE AGUA
+# CANVAS EN DOS PASADAS PARA PAGINACIÓN
 # ==========================================
 class NumberedCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
@@ -23,200 +21,203 @@ class NumberedCanvas(canvas.Canvas):
         num_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
-            self.draw_page_decorations(num_pages)
+            # Pie de página dinámico en cada hoja
+            self.setFont("Helvetica", 8)
+            self.setFillColor(colors.HexColor("#5D6D7E"))
+            self.drawRightString(567, 25, f"Página {self._pageNumber} de {page_count if 'page_count' in locals() else num_pages}")
             super().showPage()
         super().save()
 
-    def draw_page_decorations(self, page_count):
-        # 1. Fondo / Marca de Agua
-        if os.path.exists("marca_agua.jpg"):
-            self.drawImage("marca_agua.jpg", 0, 0, width=612, height=792)
-        elif os.path.exists("marca_agua.png"):
-            self.drawImage("marca_agua.png", 0, 0, width=612, height=792)
 
-        # 2. Pie de Página (Numeración)
-        self.setFont("Helvetica", 8)
-        self.setFillColor(colors.HexColor("#5D6D7E"))
-        self.drawRightString(567, 25, f"Página {self._pageNumber} de {page_count}")
-
-
-# ==========================================
-# FUNCIÓN PRINCIPAL DE GENERACIÓN
-# ==========================================
 def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo, edad, tipo_estudio, datos_estudio, observaciones_txt):
     buffer = io.BytesIO()
+    c = NumberedCanvas(buffer, pagesize=letter)
     
-    # Márgenes ajustados para dar un área de impresión segura
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        leftMargin=45,
-        rightMargin=45,
-        topMargin=130,   # Espacio para el encabezado
-        bottomMargin=90   # Espacio libre sobre la firma
-    )
+    # Límite inferior para no pisar la firma (margen de seguridad)
+    LIMITE_INFERIOR = 110
+    Y_INICIAL = 665
 
-    styles = getSampleStyleSheet()
-    
-    estilo_celda = ParagraphStyle('Celda', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9)
-    estilo_celda_hdr = ParagraphStyle('CeldaHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=9, textColor=colors.HexColor("#2C3E50"))
-    estilo_obs = ParagraphStyle('Obs', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=8, leading=11, textColor=colors.HexColor("#2C3E50"))
+    def aplicar_fondo(canvas_obj):
+        if os.path.exists("marca_agua.jpg"):
+            canvas_obj.drawImage("marca_agua.jpg", 0, 0, width=612, height=792)
+        elif os.path.exists("marca_agua.png"):
+            canvas_obj.drawImage("marca_agua.png", 0, 0, width=612, height=792)
 
-    # Dibujo del encabezado de paciente en el Canvas
-    def dibujar_encabezado_paciente(canvas_obj, doc_obj):
-        y = 665
+    def dibujar_encabezado_paciente(canvas_obj, pos_y):
         canvas_obj.setFont("Helvetica-Bold", 8)
         canvas_obj.setFillColor(colors.HexColor("#1A252C"))
 
-        canvas_obj.drawString(45, y, "NO. ESTUDIO:")
-        canvas_obj.drawString(45, y - 12, "PACIENTE / IDENT.:")
-        canvas_obj.drawString(45, y - 24, "ESPECIE:")
-        canvas_obj.drawString(45, y - 36, "RAZA:")
+        canvas_obj.drawString(45, pos_y, "NO. ESTUDIO:")
+        canvas_obj.drawString(45, pos_y - 12, "PACIENTE / IDENT.:")
+        canvas_obj.drawString(45, pos_y - 24, "ESPECIE:")
+        canvas_obj.drawString(45, pos_y - 36, "RAZA:")
 
         canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(135, y, str(estudio_id or ''))
-        canvas_obj.drawString(135, y - 12, str(paciente or ''))
-        canvas_obj.drawString(135, y - 24, str(especie or ''))
-        canvas_obj.drawString(135, y - 36, str(raza or ''))
+        canvas_obj.drawString(135, pos_y, str(estudio_id or ''))
+        canvas_obj.drawString(135, pos_y - 12, str(paciente or ''))
+        canvas_obj.drawString(135, pos_y - 24, str(especie or ''))
+        canvas_obj.drawString(135, pos_y - 36, str(raza or ''))
 
         canvas_obj.setFont("Helvetica-Bold", 8)
-        canvas_obj.drawString(340, y, "FECHA:")
-        canvas_obj.drawString(340, y - 12, "MEDICO SOLICITANTE:")
-        canvas_obj.drawString(340, y - 24, "SEXO:")
-        canvas_obj.drawString(340, y - 36, "EDAD:")
+        canvas_obj.drawString(340, pos_y, "FECHA:")
+        canvas_obj.drawString(340, pos_y - 12, "MEDICO SOLICITANTE:")
+        canvas_obj.drawString(340, pos_y - 24, "SEXO:")
+        canvas_obj.drawString(340, pos_y - 36, "EDAD:")
 
         canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.drawString(445, y, str(fecha or ''))
-        canvas_obj.drawString(445, y - 12, str(medico or ''))
-        canvas_obj.drawString(445, y - 24, str(sexo or ''))
-        canvas_obj.drawString(445, y - 36, str(edad or ''))
+        canvas_obj.drawString(445, pos_y, str(fecha or ''))
+        canvas_obj.drawString(445, pos_y - 12, str(medico or ''))
+        canvas_obj.drawString(445, pos_y - 24, str(sexo or ''))
+        canvas_obj.drawString(445, pos_y - 36, str(edad or ''))
 
-    # Helper para crear bloques de tabla
-    def crear_bloque_tabla(titulo, lista_datos, color_hex="#117A65"):
-        elementos_bloque = []
-        
-        hdr_table = Table([[titulo]], colWidths=[522], rowHeights=[16])
-        hdr_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(color_hex)),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ]))
-        elementos_bloque.append(hdr_table)
+    # Inicializar Primera Página
+    aplicar_fondo(c)
+    dibujar_encabezado_paciente(c, Y_INICIAL)
+    y = Y_INICIAL - 55
 
-        tabla_data = [[
-            Paragraph("PARÁMETRO", estilo_celda_hdr),
-            Paragraph("RESULTADO", estilo_celda_hdr),
-            Paragraph("UNIDAD", estilo_celda_hdr),
-            Paragraph("RANGOS REFERENCIA", estilo_celda_hdr)
-        ]]
-        
+    # Función para verificar salto de página
+    def verificar_salto_pagina(pos_y, alto_requerido):
+        if (pos_y - alto_requerido) < LIMITE_INFERIOR:
+            c.showPage()  # Cambia a nueva página
+            aplicar_fondo(c)
+            dibujar_encabezado_paciente(c, Y_INICIAL)
+            return Y_INICIAL - 55
+        return pos_y
+
+    def dibujar_encabezado_bloque(canvas_obj, titulo, pos_y, color_hex):
+        canvas_obj.setFillColor(colors.HexColor(color_hex))
+        canvas_obj.rect(45, pos_y - 2, 520, 14, fill=1, stroke=0)
+        canvas_obj.setFillColor(colors.white)
+        canvas_obj.setFont("Helvetica-Bold", 8.5)
+        canvas_obj.drawString(50, pos_y + 2, titulo)
+        canvas_obj.setFillColor(colors.HexColor("#1A252C"))
+
+    def dibujar_tabla_estudio(canvas_obj, lista_datos, pos_y):
+        tabla_data = [["PARÁMETRO", "RESULTADO", "UNIDAD", "RANGOS REFERENCIA"]]
         for fila in lista_datos:
             p = str(fila[0]) if len(fila) > 0 else ""
             r = str(fila[1]) if len(fila) > 1 else ""
             u = str(fila[2]) if len(fila) > 2 else ""
             ref = str(fila[3]) if len(fila) > 3 else ""
-            
-            tabla_data.append([
-                Paragraph(p, estilo_celda),
-                Paragraph(r, estilo_celda),
-                Paragraph(u, estilo_celda),
-                Paragraph(ref, estilo_celda)
-            ])
+            tabla_data.append([p, r, u, ref])
 
-        t = Table(tabla_data, colWidths=[182, 110, 90, 140])
+        t = Table(tabla_data, colWidths=[180, 110, 90, 140])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#EAEDED")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7.5),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
-            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
         ]))
-        elementos_bloque.append(t)
-        elementos_bloque.append(Spacer(1, 8))
         
-        return elementos_bloque
+        w, h = t.wrap(520, 400)
+        t.drawOn(canvas_obj, 45, pos_y - h)
+        return pos_y - h - 10
 
-    story = []
+    # -------------------------------------------------------------
+    # IMPRESIÓN DE BLOQUES CON CONTROL AUTOMÁTICO DE SALTO DE PÁGINA
+    # -------------------------------------------------------------
 
-    try:
-        # Hemograma / QS / Endo
-        if datos_estudio.get('hem_roja'):
-            story.extend(crear_bloque_tabla("🔴 FÓRMULA ROJA (ERITROGRAMA)", datos_estudio['hem_roja'], "#900C3F"))
+    # Hemograma / QS / Endocrinología
+    if 'hem_roja' in datos_estudio and datos_estudio['hem_roja']:
+        alto_est = len(datos_estudio['hem_roja']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "🔴 FÓRMULA ROJA (ERITROGRAMA)", y, "#900C3F")
+        y = dibujar_tabla_estudio(c, datos_estudio['hem_roja'], y - 14)
 
-        if datos_estudio.get('hem_blanca'):
-            story.extend(crear_bloque_tabla("⚪ FÓRMULA BLANCA Y PLAQUETAS (LEUCOGRAMA)", datos_estudio['hem_blanca'], "#2C3E50"))
+    if 'hem_blanca' in datos_estudio and datos_estudio['hem_blanca']:
+        alto_est = len(datos_estudio['hem_blanca']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "⚪ FÓRMULA BLANCA Y PLAQUETAS (LEUCOGRAMA)", y, "#2C3E50")
+        y = dibujar_tabla_estudio(c, datos_estudio['hem_blanca'], y - 14)
 
-        if datos_estudio.get('qs_items'):
-            story.extend(crear_bloque_tabla("🧪 BIOQUÍMICA CLÍNICA", datos_estudio['qs_items'], "#1B4F72"))
+    if 'qs_items' in datos_estudio and datos_estudio['qs_items']:
+        alto_est = len(datos_estudio['qs_items']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "🧪 BIOQUÍMICA CLÍNICA", y, "#1B4F72")
+        y = dibujar_tabla_estudio(c, datos_estudio['qs_items'], y - 14)
 
-        if datos_estudio.get('endo_items'):
-            story.extend(crear_bloque_tabla("⚕️ ENDOCRINOLOGÍA", datos_estudio['endo_items'], "#2874A6"))
+    if 'endo_items' in datos_estudio and datos_estudio['endo_items']:
+        alto_est = len(datos_estudio['endo_items']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "⚕️ ENDOCRINOLOGÍA", y, "#2874A6")
+        y = dibujar_tabla_estudio(c, datos_estudio['endo_items'], y - 14)
 
-        # Urianálisis
-        if datos_estudio.get('uri_fisico'):
-            story.extend(crear_bloque_tabla("🧪 URIANÁLISIS - EXAMEN FÍSICO", datos_estudio['uri_fisico'], "#117A65"))
+    # Urianálisis
+    if 'uri_fisico' in datos_estudio and datos_estudio['uri_fisico']:
+        alto_est = len(datos_estudio['uri_fisico']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "🧪 URIANÁLISIS - EXAMEN FÍSICO", y, "#117A65")
+        y = dibujar_tabla_estudio(c, datos_estudio['uri_fisico'], y - 14)
 
-        if datos_estudio.get('uri_quimico'):
-            story.extend(crear_bloque_tabla("🔬 URIANÁLISIS - EXAMEN QUÍMICO", datos_estudio['uri_quimico'], "#117A65"))
+    if 'uri_quimico' in datos_estudio and datos_estudio['uri_quimico']:
+        alto_est = len(datos_estudio['uri_quimico']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "🔬 URIANÁLISIS - EXAMEN QUÍMICO", y, "#117A65")
+        y = dibujar_tabla_estudio(c, datos_estudio['uri_quimico'], y - 14)
 
-        if datos_estudio.get('uri_micro'):
-            story.extend(crear_bloque_tabla("🔬 URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA", datos_estudio['uri_micro'], "#117A65"))
+    if 'uri_micro' in datos_estudio and datos_estudio['uri_micro']:
+        alto_est = len(datos_estudio['uri_micro']) * 15 + 30
+        y = verificar_salto_pagina(y, alto_est)
+        dibujar_encabezado_bloque(c, "🔬 URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA", y, "#117A65")
+        y = dibujar_tabla_estudio(c, datos_estudio['uri_micro'], y - 14)
 
-        if datos_estudio.get('obs_urianalisis'):
-            story.append(Paragraph(f"<b>Observaciones Urinarias:</b> {datos_estudio['obs_urianalisis']}", estilo_obs))
-            story.append(Spacer(1, 8))
+    if datos_estudio.get('obs_urianalisis'):
+        y = verificar_salto_pagina(y, 25)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(45, y, "Observaciones Urinarias:")
+        c.setFont("Helvetica", 8)
+        c.drawString(155, y, str(datos_estudio['obs_urianalisis']))
+        y -= 15
 
-        # Copro / Sero / Cito
-        if datos_estudio.get('copro_items'):
-            story.append(Paragraph("<b>💩 COPROPARASITOSCÓPICO Y COPROLÓGICO</b>", estilo_celda_hdr))
-            for param, val in datos_estudio['copro_items']:
-                story.append(Paragraph(f"• {param}: {val}", estilo_celda))
-            story.append(Spacer(1, 6))
+    # Copro / Sero / Cito
+    if 'copro_items' in datos_estudio and datos_estudio['copro_items']:
+        y = verificar_salto_pagina(y, len(datos_estudio['copro_items']) * 12 + 20)
+        dibujar_encabezado_bloque(c, "💩 COPROPARASITOSCÓPICO Y COPROLÓGICO", y, "#6C3483")
+        y -= 14
+        c.setFont("Helvetica", 8)
+        for param, val in datos_estudio['copro_items']:
+            c.drawString(55, y, f"• {param}: {val}")
+            y -= 10
+        y -= 6
 
-        if datos_estudio.get('sero_items'):
-            story.append(Paragraph("<b>🩸 PRUEBAS RÁPIDAS Y SEROLOGÍA</b>", estilo_celda_hdr))
-            for prueba, resultado in datos_estudio['sero_items']:
-                story.append(Paragraph(f"Prueba: {prueba} | Resultado: {resultado}", estilo_celda))
-            story.append(Spacer(1, 6))
+    if 'sero_items' in datos_estudio and datos_estudio['sero_items']:
+        y = verificar_salto_pagina(y, len(datos_estudio['sero_items']) * 14 + 20)
+        dibujar_encabezado_bloque(c, "🩸 PRUEBAS RÁPIDAS Y SEROLOGÍA", y, "#D4AC0D")
+        y -= 14
+        c.setFont("Helvetica", 9)
+        for prueba, resultado in datos_estudio['sero_items']:
+            c.drawString(55, y, f"Prueba: {prueba}  |  Resultado: {resultado}")
+            y -= 12
+        y -= 6
 
-        if datos_estudio.get('cito_items'):
-            story.append(Paragraph("<b>🔬 CITOLOGÍA Y DERMATOLOGÍA</b>", estilo_celda_hdr))
-            for param, val in datos_estudio['cito_items']:
-                story.append(Paragraph(f"{param}: {val}", estilo_celda))
-            story.append(Spacer(1, 6))
+    if 'cito_items' in datos_estudio and datos_estudio['cito_items']:
+        y = verificar_salto_pagina(y, len(datos_estudio['cito_items']) * 12 + 20)
+        dibujar_encabezado_bloque(c, "🔬 CITOLOGÍA Y DERMATOLOGÍA", y, "#C0392B")
+        y -= 14
+        c.setFont("Helvetica", 8)
+        for param, val in datos_estudio['cito_items']:
+            c.drawString(55, y, f"{param}: {val}")
+            y -= 10
+        y -= 6
 
-        # Observaciones Generales
-        if observaciones_txt:
-            hdr_obs = Table([["💬 OBSERVACIONES Y NOTAS CLÍNICAS"]], colWidths=[522], rowHeights=[16])
-            hdr_obs.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#2E4053")),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            story.append(hdr_obs)
-            story.append(Spacer(1, 4))
-            for line in str(observaciones_txt).split('\n'):
-                if line.strip():
-                    story.append(Paragraph(line.strip(), estilo_obs))
+    # Observaciones Generales
+    if observaciones_txt:
+        lineas_obs = str(observaciones_txt).split('\n')
+        y = verificar_salto_pagina(y, len(lineas_obs) * 12 + 25)
+        dibujar_encabezado_bloque(c, "💬 OBSERVACIONES Y NOTAS CLÍNICAS", y, "#2E4053")
+        y -= 14
+        c.setFont("Helvetica-Oblique", 7.5)
+        c.setFillColor(colors.HexColor("#2C3E50"))
+        for line in lineas_obs:
+            c.drawString(55, y, line)
+            y -= 10
 
-        # Construcción del PDF
-        doc.build(
-            story,
-            canvasmaker=NumberedCanvas,
-            onFirstPage=dibujar_encabezado_paciente,
-            onLaterPages=dibujar_encabezado_paciente
-        )
-
-    except Exception as e:
-        print("ERROR GENERANDO PDF:", traceback.format_exc())
-        raise e
+    c.save()
 
     # Nomenclatura del archivo
     estudio_clean = str(estudio_id or '').strip().replace(' ', '_')
