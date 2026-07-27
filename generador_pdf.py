@@ -1,8 +1,9 @@
 import os
 import io
+import traceback
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -33,7 +34,7 @@ class NumberedCanvas(canvas.Canvas):
         elif os.path.exists("marca_agua.png"):
             self.drawImage("marca_agua.png", 0, 0, width=612, height=792)
 
-        # 2. Pie de Página (Numeración dinámica)
+        # 2. Pie de Página (Numeración)
         self.setFont("Helvetica", 8)
         self.setFillColor(colors.HexColor("#5D6D7E"))
         self.drawRightString(567, 25, f"Página {self._pageNumber} de {page_count}")
@@ -45,14 +46,14 @@ class NumberedCanvas(canvas.Canvas):
 def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo, edad, tipo_estudio, datos_estudio, observaciones_txt):
     buffer = io.BytesIO()
     
-    # Ajuste de márgenes: topMargin a 125 para dar suficiente espacio de inicio
+    # Márgenes ajustados para dar un área de impresión segura
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
         leftMargin=45,
         rightMargin=45,
-        topMargin=125,
-        bottomMargin=95
+        topMargin=130,   # Espacio para el encabezado
+        bottomMargin=90   # Espacio libre sobre la firma
     )
 
     styles = getSampleStyleSheet()
@@ -61,7 +62,7 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
     estilo_celda_hdr = ParagraphStyle('CeldaHdr', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=9, textColor=colors.HexColor("#2C3E50"))
     estilo_obs = ParagraphStyle('Obs', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=8, leading=11, textColor=colors.HexColor("#2C3E50"))
 
-    # Dibujo del encabezado de paciente en el Canvas (fijo en cada hoja)
+    # Dibujo del encabezado de paciente en el Canvas
     def dibujar_encabezado_paciente(canvas_obj, doc_obj):
         y = 665
         canvas_obj.setFont("Helvetica-Bold", 8)
@@ -90,7 +91,7 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         canvas_obj.drawString(445, y - 24, str(sexo or ''))
         canvas_obj.drawString(445, y - 36, str(edad or ''))
 
-    # Creador de tablas
+    # Helper para crear bloques de tabla
     def crear_bloque_tabla(titulo, lista_datos, color_hex="#117A65"):
         elementos_bloque = []
         
@@ -142,82 +143,80 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
 
     story = []
 
-    # Bloques condicionales
-    if 'hem_roja' in datos_estudio and datos_estudio['hem_roja']:
-        story.extend(crear_bloque_tabla("🔴 FÓRMULA ROJA (ERITROGRAMA)", datos_estudio['hem_roja'], "#900C3F"))
+    try:
+        # Hemograma / QS / Endo
+        if datos_estudio.get('hem_roja'):
+            story.extend(crear_bloque_tabla("🔴 FÓRMULA ROJA (ERITROGRAMA)", datos_estudio['hem_roja'], "#900C3F"))
 
-    if 'hem_blanca' in datos_estudio and datos_estudio['hem_blanca']:
-        story.extend(crear_bloque_tabla("⚪ FÓRMULA BLANCA Y PLAQUETAS (LEUCOGRAMA)", datos_estudio['hem_blanca'], "#2C3E50"))
+        if datos_estudio.get('hem_blanca'):
+            story.extend(crear_bloque_tabla("⚪ FÓRMULA BLANCA Y PLAQUETAS (LEUCOGRAMA)", datos_estudio['hem_blanca'], "#2C3E50"))
 
-    if 'qs_items' in datos_estudio and datos_estudio['qs_items']:
-        story.extend(crear_bloque_tabla("🧪 BIOQUÍMICA CLÍNICA", datos_estudio['qs_items'], "#1B4F72"))
+        if datos_estudio.get('qs_items'):
+            story.extend(crear_bloque_tabla("🧪 BIOQUÍMICA CLÍNICA", datos_estudio['qs_items'], "#1B4F72"))
 
-    if 'endo_items' in datos_estudio and datos_estudio['endo_items']:
-        story.extend(crear_bloque_tabla("⚕️ ENDOCRINOLOGÍA", datos_estudio['endo_items'], "#2874A6"))
+        if datos_estudio.get('endo_items'):
+            story.extend(crear_bloque_tabla("⚕️ ENDOCRINOLOGÍA", datos_estudio['endo_items'], "#2874A6"))
 
-    # Urianálisis
-    if 'uri_fisico' in datos_estudio and datos_estudio['uri_fisico']:
-        story.extend(crear_bloque_tabla("🧪 URIANÁLISIS - EXAMEN FÍSICO", datos_estudio['uri_fisico'], "#117A65"))
+        # Urianálisis
+        if datos_estudio.get('uri_fisico'):
+            story.extend(crear_bloque_tabla("🧪 URIANÁLISIS - EXAMEN FÍSICO", datos_estudio['uri_fisico'], "#117A65"))
 
-    if 'uri_quimico' in datos_estudio and datos_estudio['uri_quimico']:
-        story.extend(crear_bloque_tabla("🔬 URIANÁLISIS - EXAMEN QUÍMICO", datos_estudio['uri_quimico'], "#117A65"))
+        if datos_estudio.get('uri_quimico'):
+            story.extend(crear_bloque_tabla("🔬 URIANÁLISIS - EXAMEN QUÍMICO", datos_estudio['uri_quimico'], "#117A65"))
 
-    if 'uri_micro' in datos_estudio and datos_estudio['uri_micro']:
-        story.extend(crear_bloque_tabla("🔬 URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA", datos_estudio['uri_micro'], "#117A65"))
+        if datos_estudio.get('uri_micro'):
+            story.extend(crear_bloque_tabla("🔬 URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA", datos_estudio['uri_micro'], "#117A65"))
 
-    if datos_estudio.get('obs_urianalisis'):
-        p_obs_uri = Paragraph(f"<b>Observaciones Urinarias:</b> {datos_estudio['obs_urianalisis']}", estilo_obs)
-        story.append(p_obs_uri)
-        story.append(Spacer(1, 8))
+        if datos_estudio.get('obs_urianalisis'):
+            story.append(Paragraph(f"<b>Observaciones Urinarias:</b> {datos_estudio['obs_urianalisis']}", estilo_obs))
+            story.append(Spacer(1, 8))
 
-    # Copro / Sero / Cito
-    if 'copro_items' in datos_estudio and datos_estudio['copro_items']:
-        bloque_copro = [Paragraph("<b>💩 COPROPARASITOSCÓPICO Y COPROLÓGICO</b>", estilo_celda_hdr)]
-        for param, val in datos_estudio['copro_items']:
-            bloque_copro.append(Paragraph(f"• {param}: {val}", estilo_celda))
-        bloque_copro.append(Spacer(1, 6))
-        story.append(KeepTogether(bloque_copro))
+        # Copro / Sero / Cito
+        if datos_estudio.get('copro_items'):
+            story.append(Paragraph("<b>💩 COPROPARASITOSCÓPICO Y COPROLÓGICO</b>", estilo_celda_hdr))
+            for param, val in datos_estudio['copro_items']:
+                story.append(Paragraph(f"• {param}: {val}", estilo_celda))
+            story.append(Spacer(1, 6))
 
-    if 'sero_items' in datos_estudio and datos_estudio['sero_items']:
-        bloque_sero = [Paragraph("<b>🩸 PRUEBAS RÁPIDAS Y SEROLOGÍA</b>", estilo_celda_hdr)]
-        for prueba, resultado in datos_estudio['sero_items']:
-            bloque_sero.append(Paragraph(f"Prueba: {prueba} | Resultado: {resultado}", estilo_celda))
-        bloque_sero.append(Spacer(1, 6))
-        story.append(KeepTogether(bloque_sero))
+        if datos_estudio.get('sero_items'):
+            story.append(Paragraph("<b>🩸 PRUEBAS RÁPIDAS Y SEROLOGÍA</b>", estilo_celda_hdr))
+            for prueba, resultado in datos_estudio['sero_items']:
+                story.append(Paragraph(f"Prueba: {prueba} | Resultado: {resultado}", estilo_celda))
+            story.append(Spacer(1, 6))
 
-    if 'cito_items' in datos_estudio and datos_estudio['cito_items']:
-        bloque_cito = [Paragraph("<b>🔬 CITOLOGÍA Y DERMATOLOGÍA</b>", estilo_celda_hdr)]
-        for param, val in datos_estudio['cito_items']:
-            bloque_cito.append(Paragraph(f"{param}: {val}", estilo_celda))
-        bloque_cito.append(Spacer(1, 6))
-        story.append(KeepTogether(bloque_cito))
+        if datos_estudio.get('cito_items'):
+            story.append(Paragraph("<b>🔬 CITOLOGÍA Y DERMATOLOGÍA</b>", estilo_celda_hdr))
+            for param, val in datos_estudio['cito_items']:
+                story.append(Paragraph(f"{param}: {val}", estilo_celda))
+            story.append(Spacer(1, 6))
 
-    # Observaciones Generales
-    if observaciones_txt:
-        bloque_obs = []
-        hdr_obs = Table([["💬 OBSERVACIONES Y NOTAS CLÍNICAS"]], colWidths=[522], rowHeights=[16])
-        hdr_obs.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#2E4053")),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        bloque_obs.append(hdr_obs)
-        bloque_obs.append(Spacer(1, 4))
-        for line in str(observaciones_txt).split('\n'):
-            if line.strip():
-                bloque_obs.append(Paragraph(line.strip(), estilo_obs))
-        
-        story.append(KeepTogether(bloque_obs))
+        # Observaciones Generales
+        if observaciones_txt:
+            hdr_obs = Table([["💬 OBSERVACIONES Y NOTAS CLÍNICAS"]], colWidths=[522], rowHeights=[16])
+            hdr_obs.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#2E4053")),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]))
+            story.append(hdr_obs)
+            story.append(Spacer(1, 4))
+            for line in str(observaciones_txt).split('\n'):
+                if line.strip():
+                    story.append(Paragraph(line.strip(), estilo_obs))
 
-    # Construir documento
-    doc.build(
-        story,
-        canvasmaker=NumberedCanvas,
-        onFirstPage=dibujar_encabezado_paciente,
-        onLaterPages=dibujar_encabezado_paciente
-    )
+        # Construcción del PDF
+        doc.build(
+            story,
+            canvasmaker=NumberedCanvas,
+            onFirstPage=dibujar_encabezado_paciente,
+            onLaterPages=dibujar_encabezado_paciente
+        )
+
+    except Exception as e:
+        print("ERROR GENERANDO PDF:", traceback.format_exc())
+        raise e
 
     # Nomenclatura del archivo
     estudio_clean = str(estudio_id or '').strip().replace(' ', '_')
