@@ -183,21 +183,92 @@ def modulo_citologia():
     return {'cito_items': [("ORIGEN", sitio), ("DESCRIPCIÓN", hallazgo)]}
 
 def modulo_urianalisis(es_felino):
-    st.markdown('<div class="card-uri"><b>📋 URIANÁLISIS COMPLETO</b></div>', unsafe_allow_html=True)
-    u1, u2 = st.columns(2)
-    with u1:
-        ph = st.text_input("pH Urinario", "6.5" if es_felino else "6.0")
-        ge = st.text_input("Gravedad Específica", "1.040" if es_felino else "1.030")
-        aspecto = st.text_input("Aspecto / Color", "CLARO / AMARILLO PALIDO")
-    with u2:
-        hb_u = st.text_input("Sangre Oculta", "NEGATIVO")
-        prot_u = st.text_input("Proteína Urinaria", "NEGATIVO")
-        sed = st.text_input("Sedimento Urinario", "SIN HALLAZGOS PATOLÓGICOS")
-    return {'uri_items': [
-        ("pH URINARIO", ph, "-", "6.0 - 7.5"), ("GRAVEDAD ESPECÍFICA", ge, "-", "> 1.035" if es_felino else "> 1.030"),
-        ("ASPECTO Y COLOR", aspecto, "-", "Claro / Amarillo pálido"), ("SANGRE OCULTA", hb_u, "-", "Negativo"),
-        ("PROTEÍNA", prot_u, "-", "Negativo / Trazas"), ("SEDIMENTO", sed, "-", "Normal")
-    ]}
+    st.markdown('<div class="card-uri"><b>📋 URIANÁLISIS COMPLETO (EVALUACIÓN INTEGRAL)</b></div>', unsafe_allow_html=True)
+    
+    u_col1, u_col2, u_col3 = st.columns(3)
+    
+    with u_col1:
+        st.caption("🧪 **EXAMEN FÍSICO**")
+        volumen = st.text_input("Volumen (mL)", "3.0")
+        color = st.text_input("Color", "AMARILLO" if es_felino else "OCRE")
+        aspecto = st.text_input("Aspecto", "CLARO" if es_felino else "TURBIO")
+        sedimento = st.text_input("Sedimento", "ESCASO" if es_felino else "ABUNDANTE")
+        ph = st.text_input("pH Urinario", "6.5" if es_felino else "6.5")
+        ge = st.text_input("Gravedad Específica", "1.040" if es_felino else "1.015")
+
+    with u_col2:
+        st.caption("🔬 **EXAMEN QUÍMICO**")
+        hb_u = st.selectbox("Sangre Oculta / Hemoglobina", ["NEGATIVO", "POSITIVO +", "POSITIVO ++", "POSITIVO +++"])
+        prot_u = st.text_input("Proteína Urinaria (g/L)", "NEGATIVO" if es_felino else "2 g/L")
+        glu_u = st.selectbox("Glucosa Urinaria", ["NEGATIVO", "POSITIVO +", "POSITIVO ++", "POSITIVO +++"])
+        cetonas = st.selectbox("Cuerpos Cetónicos", ["NEGATIVO", "POSITIVO +", "POSITIVO ++", "POSITIVO +++"])
+        urobilinogeno = st.selectbox("Urobilinógeno", ["NEGATIVO", "POSITIVO +", "POSITIVO ++"])
+        bilirrubina_u = st.selectbox("Bilirrubina Urinaria", ["NEGATIVO", "POSITIVO +", "POSITIVO ++", "POSITIVO +++"])
+
+    with u_col3:
+        st.caption("🔬 **EXAMEN MICROSCÓPICO (SEDIMENTO)**")
+        c_vesicales = st.text_input("Células Vesicales", "1-2 POR CAMPO")
+        c_transicionales = st.text_input("Células Transicionales", "NO SE OBSERVAN")
+        c_renales = st.text_input("Células Renales", "NO SE OBSERVAN")
+        eritrocitos_u = st.text_input("Glóbulos Rojos", "2 POR CAMPO")
+        leucocitos_u = st.text_input("Leucocitos", "10-15 POR CAMPO")
+        
+        crist_oxalato = st.text_input("Oxalato de Calcio", "NO SE OBSERVAN")
+        crist_fosfatos_t = st.text_input("Fosfatos Triples", "NO SE OBSERVAN")
+        uratos_amorfos = st.text_input("Uratos Amorfos", "NO SE OBSERVAN")
+        bacterias_u = st.text_input("Bacterias", "NO SE OBSERVAN")
+        piocitos = st.text_input("Piocitos", "NO SE OBSERVAN")
+        cilindros = st.text_input("Cilindros (Hialinos/Granulosos)", "NO SE OBSERVAN")
+        mucina_u = st.text_input("Mucina", "ESCASA")
+
+    st.markdown("---")
+    diag_uri = st.text_input("Diagnóstico Urinario / Observaciones", "SIN HALLAZGOS PATOLÓGICOS" if es_felino else "CISTITIS SEVERA, CRISTALURIA, PROTEINURIA SEVERA")
+
+    ref_uri = {
+        "ge": "> 1.035" if es_felino else "> 1.030",
+        "ph": "6.0 - 7.5",
+        "prot": "Negativo / Trazas",
+        "hb": "Negativo",
+        "glu": "Negativo",
+        "cetonas": "Negativo",
+        "bili": "Negativo"
+    }
+
+    datos_locales['uri_items'] = [
+        # Examen Físico
+        ("VOLUMEN", volumen, "mL", "-"),
+        ("COLOR", color, "-", "Amarillo / Claro"),
+        ("ASPECTO", aspecto, "-", "Claro / Transparente"),
+        ("SEDIMENTO", sedimento, "-", "Escaso"),
+        ("pH URINARIO", ph, "-", ref_uri["ph"]),
+        ("GRAVEDAD ESPECÍFICA", ge, "-", ref_uri["ge"]),
+        
+        # Examen Químico
+        ("HEMOGLOBINA / SANGRE", hb_u, "-", ref_uri["hb"]),
+        ("PROTEÍNA URINARIA", prot_u, "-", ref_uri["prot"]),
+        ("GLUCOSA", glu_u, "-", ref_uri["glu"]),
+        ("CUERPOS CETÓNICOS", cetonas, "-", ref_uri["cetonas"]),
+        ("UROBILINÓGENO", urobilinogeno, "-", "Negativo"),
+        ("BILIRRUBINA", bilirrubina_u, "-", ref_uri["bili"]),
+        
+        # Examen Microscópico
+        ("CÉLULAS VESICALES", c_vesicales, "por campo", "Escasas"),
+        ("CÉLULAS TRANSICIONALES", c_transicionales, "por campo", "Escasas / Ausentes"),
+        ("CÉLULAS RENALES", c_renales, "por campo", "Ausentes"),
+        ("GLÓBULOS ROJOS", eritrocitos_u, "por campo", "0 - 2 por campo"),
+        ("LEUCOCITOS", leucocitos_u, "por campo", "0 - 5 por campo"),
+        ("OXALATO DE CALCIO", crist_oxalato, "-", "Ausentes"),
+        ("FOSFATOS TRIPLES", crist_fosfatos_t, "-", "Ausentes"),
+        ("URATOS AMORFOS", uratos_amorfos, "-", "Ausentes"),
+        ("BACTERIAS", bacterias_u, "-", "Ausentes"),
+        ("PIOCITOS", piocitos, "-", "Ausentes"),
+        ("CILINDROS", cilindros, "-", "Ausentes"),
+        ("MUCINA", mucina_u, "-", "Escasa")
+    ]
+    
+    datos_locales['obs_urianalisis'] = diag_uri
+
+    return datos_locales
 
 def modulo_copro():
     st.markdown('<div class="card-cop"><b>💩 EXAMEN COPROLÓGICO</b></div>', unsafe_allow_html=True)
