@@ -1,4 +1,3 @@
-# generador_pdf.py
 import os
 import io
 from reportlab.lib.pagesizes import letter
@@ -46,7 +45,7 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
 
     y -= 55
 
-    # Funciones auxiliares PDF
+    # Funciones auxiliares PDF (Canvas Puro)
     def dibujar_encabezado_bloque(canvas_obj, titulo, pos_y, color_hex):
         canvas_obj.setFillColor(colors.HexColor(color_hex))
         canvas_obj.rect(45, pos_y - 2, 520, 14, fill=1, stroke=0)
@@ -94,40 +93,29 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         dibujar_encabezado_bloque(c, "⚕️ ENDOCRINOLOGÍA", y, "#2874A6")
         y = dibujar_tabla_estudio(c, datos_estudio['endo_items'], y - 14)
 
-# ==========================================
-# SECCIÓN: URIANÁLISIS COMPLETO
-# ==========================================
-if 'uri_fisico' in datos_estudio or 'uri_quimico' in datos_estudio or 'uri_micro' in datos_estudio:
-    
-    # 1. Examen Físico
-    if 'uri_fisico' in datos_estudio and datos_estudio['uri_fisico']:
-        elementos.append(Paragraph("<b>URIANÁLISIS - EXAMEN FÍSICO</b>", estilo_subtitulo))
-        tabla_fisico = [["PARÁMETRO", "RESULTADO", "UNIDADES", "VALOR DE REFERENCIA"]]
-        tabla_fisico.extend(datos_estudio['uri_fisico'])
-        elementos.append(crear_tabla_estandar(tabla_fisico))
-        elementos.append(Spacer(1, 8))
+    # ==========================================
+    # SECCIÓN: URIANÁLISIS SEPARADO POR TIPO
+    # ==========================================
+    if 'uri_fisico' in datos_estudio:
+        dibujar_encabezado_bloque(c, "🧪 URIANÁLISIS - EXAMEN FÍSICO", y, "#117A65")
+        y = dibujar_tabla_estudio(c, datos_estudio['uri_fisico'], y - 14)
 
-    # 2. Examen Químico
-    if 'uri_quimico' in datos_estudio and datos_estudio['uri_quimico']:
-        elementos.append(Paragraph("<b>URIANÁLISIS - EXAMEN QUÍMICO</b>", estilo_subtitulo))
-        tabla_quimico = [["PARÁMETRO", "RESULTADO", "UNIDADES", "VALOR DE REFERENCIA"]]
-        tabla_quimico.extend(datos_estudio['uri_quimico'])
-        elementos.append(crear_tabla_estandar(tabla_quimico))
-        elementos.append(Spacer(1, 8))
+    if 'uri_quimico' in datos_estudio:
+        dibujar_encabezado_bloque(c, "🔬 URIANÁLISIS - EXAMEN QUÍMICO", y, "#117A65")
+        y = dibujar_tabla_estudio(c, datos_estudio['uri_quimico'], y - 14)
 
-    # 3. Examen Microscópico (Sedimento)
-    if 'uri_micro' in datos_estudio and datos_estudio['uri_micro']:
-        elementos.append(Paragraph("<b>URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA</b>", estilo_subtitulo))
-        tabla_micro = [["PARÁMETRO", "RESULTADO", "UNIDADES", "VALOR DE REFERENCIA"]]
-        tabla_micro.extend(datos_estudio['uri_micro'])
-        elementos.append(crear_tabla_estandar(tabla_micro))
-        elementos.append(Spacer(1, 8))
+    if 'uri_micro' in datos_estudio:
+        dibujar_encabezado_bloque(c, "🔬 URIANÁLISIS - SEDIMENTO Y MICROSCOPÍA", y, "#117A65")
+        y = dibujar_tabla_estudio(c, datos_estudio['uri_micro'], y - 14)
 
-    # Observaciones / Diagnóstico Urinario
     if datos_estudio.get('obs_urianalisis'):
-        elementos.append(Paragraph(f"<b>Observaciones:</b> {datos_estudio['obs_urianalisis']}", estilo_texto))
-        elementos.append(Spacer(1, 10))
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(45, y, "Observaciones Urinarias:")
+        c.setFont("Helvetica", 8)
+        c.drawString(155, y, str(datos_estudio['obs_urianalisis']))
+        y -= 15
 
+    # OTROS ESTUDIOS
     if 'copro_items' in datos_estudio:
         dibujar_encabezado_bloque(c, "💩 COPROPARASITOSCÓPICO Y COPROLÓGICO", y, "#6C3483")
         y -= 14
@@ -155,14 +143,15 @@ if 'uri_fisico' in datos_estudio or 'uri_quimico' in datos_estudio or 'uri_micro
             y -= 10
         y -= 6
 
-    # 4. OBSERVACIONES
-    dibujar_encabezado_bloque(c, "💬 OBSERVACIONES Y NOTAS CLÍNICAS", y, "#2E4053")
-    y -= 14
-    c.setFont("Helvetica-Oblique", 7.5)
-    c.setFillColor(colors.HexColor("#2C3E50"))
-    for line in observaciones_txt.split('\n'):
-        c.drawString(55, y, line)
-        y -= 10
+    # 4. OBSERVACIONES GENERALES
+    if observaciones_txt:
+        dibujar_encabezado_bloque(c, "💬 OBSERVACIONES Y NOTAS CLÍNICAS", y, "#2E4053")
+        y -= 14
+        c.setFont("Helvetica-Oblique", 7.5)
+        c.setFillColor(colors.HexColor("#2C3E50"))
+        for line in observaciones_txt.split('\n'):
+            c.drawString(55, y, line)
+            y -= 10
 
     c.save()
 
