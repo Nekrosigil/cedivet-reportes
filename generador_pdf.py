@@ -24,7 +24,6 @@ class NumberedCanvas(canvas.Canvas):
         num_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
-            # Solo escribimos texto encima, nada de imágenes aquí
             self.setFont("Helvetica", 8)
             self.setFillColor(colors.HexColor("#5D6D7E"))
             self.drawRightString(567, 25, f"Página {self._pageNumber} de {num_pages}")
@@ -41,11 +40,11 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         pagesize=letter,
         leftMargin=45,
         rightMargin=45,
-        topMargin=135,
+        topMargin=185,  # <-- ¡CORRECCIÓN AQUÍ! Empuja las tablas hacia abajo para no tapar el encabezado
         bottomMargin=110
     )
 
-    # El área donde el contenido puede escribirse libremente sin tocar encabezado ni firma
+    # El área donde el contenido puede escribirse libremente
     frame_contenido = Frame(
         doc.leftMargin,
         doc.bottomMargin,
@@ -58,11 +57,11 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         rightPadding=0
     )
 
-    # Esta función se ejecuta PRIMERO en cada hoja nueva (Capa 1: Fondo y Textos Base)
+    # Función que dibuja la Capa 1: Fondo y Encabezado del paciente
     def dibujar_fondo_y_encabezado(canvas_obj, doc_obj):
         canvas_obj.saveState()
         
-        # 1. Dibujar marca de agua AL FONDO
+        # 1. Dibujar marca de agua
         if os.path.exists("marca_agua.jpg"):
             canvas_obj.drawImage("marca_agua.jpg", 0, 0, width=612, height=792)
         elif os.path.exists("marca_agua.png"):
@@ -98,7 +97,6 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
         
         canvas_obj.restoreState()
 
-    # Enlazamos el template al documento
     template = PageTemplate(id='HojaEstudio', frames=frame_contenido, onPage=dibujar_fondo_y_encabezado)
     doc.addPageTemplates([template])
 
@@ -211,10 +209,8 @@ def generar_pdf_cedivet(estudio_id, paciente, especie, raza, fecha, medico, sexo
             if line.strip():
                 story.append(Paragraph(line.strip(), estilo_obs))
 
-    # Construcción final usando el Canvas que solo numera
     doc.build(story, canvasmaker=NumberedCanvas)
 
-    # Nomenclatura del archivo
     estudio_clean = str(estudio_id or '').strip().replace(' ', '_')
     tipo_clean = str(tipo_estudio or '').strip().replace(' ', '_').replace('(', '').replace(')', '').replace('+', 'Y')
     especie_clean = str(especie or '').strip().replace(' ', '_')
